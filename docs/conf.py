@@ -1,0 +1,37 @@
+project = "nuclear_data_to_yamc_format"
+copyright = "2026, nuclear_data_to_yamc_format contributors"
+author = "nuclear_data_to_yamc_format contributors"
+release = "0.1.0"
+
+extensions = [
+    "sphinx.ext.autodoc",
+    "sphinx.ext.napoleon",
+    "sphinx.ext.intersphinx",
+    "myst_parser",
+]
+
+source_suffix = {
+    ".rst": "restructuredtext",
+    ".md": "markdown",
+}
+
+templates_path = ["_templates"]
+exclude_patterns = ["_build"]
+
+html_theme = "pydata_sphinx_theme"
+html_static_path = ["_static"]
+
+html_theme_options = {
+    "github_url": "https://github.com/your-org/nuclear_data_to_yamc_format",
+    "show_toc_level": 2,
+}
+
+intersphinx_mapping = {
+    "python": ("https://docs.python.org/3", None),
+    "numpy": ("https://numpy.org/doc/stable/", None),
+    "pyarrow": ("https://arrow.apache.org/docs/", None),
+}
+
+autodoc_member_order = "bysource"
+napoleon_google_docstring = False
+napoleon_numpy_docstring = True

@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nuclear_data_to_yamc_format"
+version = "0.1.0"
+description = "Export OpenMC nuclear data objects to Apache Arrow IPC format"
+requires-python = ">=3.9"
+dependencies = [
+    "pyarrow>=14.0",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+]
+docs = [
+    "sphinx",
+    "pydata-sphinx-theme",
+    "myst-parser",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]

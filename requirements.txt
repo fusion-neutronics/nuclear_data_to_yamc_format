@@ -1,0 +1,3 @@
+--extra-index-url https://shimwell.github.io/wheels
+openmc
+openmc_data

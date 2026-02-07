@@ -1,0 +1,42 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install OpenMC Python API
+        run: pip install openmc
+
+      - name: Install package with test dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Download test data
+        run: |
+          python -c "
+          import urllib.request, zipfile, os
+          url = 'https://anl.box.com/shared/static/9igk353zpy8fn9ttvtrqgzvw1vtejoz6.xz'
+          urllib.request.urlretrieve(url, 'test_data.tar.xz')
+          os.system('tar xf test_data.tar.xz')
+          "
+
+      - name: Run tests
+        run: pytest tests/ -v
+        env:
+          OPENMC_CROSS_SECTIONS: ${{ github.workspace }}/nndc_hdf5/cross_sections.xml
