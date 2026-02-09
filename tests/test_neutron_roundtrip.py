@@ -1,4 +1,4 @@
-"""Test neutron data roundtrip: HDF5 -> OpenMC object -> .yamc.arrow/ -> readback."""
+"""Test neutron data roundtrip: HDF5 -> OpenMC object -> .arrow/ -> readback."""
 
 import json
 import tempfile
@@ -22,7 +22,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path)
 
             # Check files exist
@@ -72,7 +72,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(fissile_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path)
 
             # Check files exist
@@ -111,7 +111,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path)
             arrow_data = read_neutron_from_arrow(arrow_path)
 
@@ -135,7 +135,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path)
             arrow_data = read_neutron_from_arrow(arrow_path)
 
@@ -155,7 +155,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path)
             arrow_data = read_neutron_from_arrow(arrow_path)
 
@@ -185,7 +185,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path, library="test-lib")
 
             version = json.loads((arrow_path / "version.json").read_text())
@@ -199,7 +199,7 @@ class TestNeutronRoundtrip:
         data = openmc.data.IncidentNeutron.from_hdf5(neutron_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_neutron_to_arrow(data, arrow_path, library="fendl-3.2c")
             arrow_data = read_neutron_from_arrow(arrow_path)
             assert arrow_data["version"]["library"] == "fendl-3.2c"

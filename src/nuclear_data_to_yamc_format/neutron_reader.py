@@ -1,4 +1,4 @@
-"""Read a simulation-ready .yamc.arrow/ neutron directory back into Python dicts."""
+"""Read a simulation-ready .arrow/ neutron directory back into Python dicts."""
 
 import json
 from pathlib import Path
@@ -46,12 +46,12 @@ def _read_multi_row(table):
 
 
 def read_neutron_from_arrow(path):
-    """Read a .yamc.arrow/ neutron directory into a dict of dicts/lists.
+    """Read a .arrow/ neutron directory into a dict of dicts/lists.
 
     Parameters
     ----------
     path : str or Path
-        Path to the Arrow directory (e.g., "Li6.yamc.arrow").
+        Path to the Arrow directory (e.g., "Li6.arrow").
 
     Returns
     -------

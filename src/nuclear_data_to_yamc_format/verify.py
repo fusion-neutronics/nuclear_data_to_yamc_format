@@ -51,7 +51,7 @@ def verify_neutron(data, arrow_path):
     data : openmc.data.IncidentNeutron
         Original data object.
     arrow_path : str or Path
-        Path to the .yamc.arrow/ directory.
+        Path to the .arrow/ directory.
 
     Returns
     -------
@@ -302,7 +302,7 @@ def verify_photon(data, arrow_path):
     data : openmc.data.IncidentPhoton
         Original data object.
     arrow_path : str or Path
-        Path to the .yamc.arrow/ directory.
+        Path to the .arrow/ directory.
 
     Returns
     -------

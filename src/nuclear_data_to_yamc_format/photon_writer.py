@@ -1,4 +1,4 @@
-"""Export an OpenMC IncidentPhoton object to a simulation-ready .yamc.arrow/ directory.
+"""Export an OpenMC IncidentPhoton object to a simulation-ready .arrow/ directory.
 
 Stores energy and cross sections in both linear and log space for fast
 interpolation.  Pre-computes Compton profile CDFs via trapezoidal integration.
@@ -74,14 +74,14 @@ def _write_arrow_ipc(table, filepath):
 
 
 def export_photon_to_arrow(data, path, *, library=""):
-    """Export an IncidentPhoton object to a simulation-ready .yamc.arrow/ directory.
+    """Export an IncidentPhoton object to a simulation-ready .arrow/ directory.
 
     Parameters
     ----------
     data : openmc.data.IncidentPhoton
         The incident photon data to export.
     path : str or Path
-        Directory path to write Arrow files to (e.g., "Fe.photon.yamc.arrow").
+        Directory path to write Arrow files to (e.g., "Fe.arrow").
     library : str, optional
         Library name (e.g., "endfb-8.0", "fendl-3.2c").
     """

@@ -15,7 +15,7 @@ From an ACE file:
 
 ```python
 convert_neutron(input_path="92235.710nc", output_dir="output/")
-# creates output/U235.yamc.arrow/
+# creates output/U235.arrow/
 ```
 
 From an ENDF file (NJOY is invoked automatically):
@@ -47,7 +47,7 @@ convert_photon(
     atom_path="atom-026_Fe_000.endf",
     library="endfb-8.0",
 )
-# creates output/Fe.photon.yamc.arrow/
+# creates output/Fe.arrow/
 ```
 
 ## Command-line script
@@ -95,7 +95,7 @@ Python dicts:
 ```python
 from nuclear_data_to_yamc_format import read_neutron_from_arrow, read_photon_from_arrow
 
-data = read_neutron_from_arrow(path="output/U235.yamc.arrow")
+data = read_neutron_from_arrow(path="output/U235.arrow")
 print(data["version"])                   # format and converter metadata
 print(data["nuclide"]["name"])           # "U235"
 print(len(data["reactions"]))            # number of reactions (incl. synthesized)
@@ -105,7 +105,7 @@ print(data["reactions"][0]["mt"])         # first reaction MT number
 for fxs in data["fast_xs"]:
     print(fxs["temperature"], len(fxs["log_grid_index"]))  # 8001 entries
 
-photon = read_photon_from_arrow(path="output/Fe.photon.yamc.arrow")
+photon = read_photon_from_arrow(path="output/Fe.arrow")
 print(photon["element"]["Z"])            # 26
 print(len(photon["element"]["ln_energy"]))  # log-space energy grid
 ```
@@ -120,8 +120,8 @@ import openmc.data
 from nuclear_data_to_yamc_format import export_neutron_to_arrow, verify_neutron
 
 data = openmc.data.IncidentNeutron.from_ace("92235.710nc")
-export_neutron_to_arrow(data=data, path="U235.yamc.arrow")
-assert verify_neutron(data=data, arrow_path="U235.yamc.arrow")
+export_neutron_to_arrow(data=data, path="U235.arrow")
+assert verify_neutron(data=data, arrow_path="U235.arrow")
 ```
 
 Verification uses `np.allclose` with `rtol=1e-12` for floating-point

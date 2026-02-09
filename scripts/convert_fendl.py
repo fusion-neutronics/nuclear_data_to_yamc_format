@@ -140,7 +140,7 @@ def main():
                 evaluations = openmc.data.endf.get_evaluations(photo_path)
                 for ev in evaluations:
                     data = openmc.data.IncidentPhoton.from_endf(ev)
-                    arrow_dir = particle_destination / f"{data.name}.photon.yamc.arrow"
+                    arrow_dir = particle_destination / f"{data.name}.arrow"
                     print(f"Writing {arrow_dir}...")
                     export_photon_to_arrow(data, arrow_dir, library=lib_name)
 

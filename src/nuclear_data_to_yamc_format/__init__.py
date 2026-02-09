@@ -25,7 +25,7 @@ def convert_neutron(input_path, output_dir, *, source_format="ace",
         Path to an ACE or ENDF neutron file.
     output_dir : str or Path
         Directory to write the Arrow output into.
-        A subdirectory named ``{nuclide}.yamc.arrow/`` will be created.
+        A subdirectory named ``{nuclide}.arrow/`` will be created.
     source_format : {"ace", "endf"}
         Input file format. ``"endf"`` runs NJOY internally.
     temperatures : list of float, optional
@@ -51,7 +51,7 @@ def convert_neutron(input_path, output_dir, *, source_format="ace",
     else:
         raise ValueError(f"Unknown source_format: {source_format!r}")
 
-    arrow_path = output_dir / f"{data.name}.yamc.arrow"
+    arrow_path = output_dir / f"{data.name}.arrow"
     export_neutron_to_arrow(data, arrow_path, library=library)
     return arrow_path
 
@@ -65,7 +65,7 @@ def convert_photon(input_path, output_dir, *, atom_path=None, library=""):
         Path to a photoatomic ENDF file.
     output_dir : str or Path
         Directory to write the Arrow output into.
-        A subdirectory named ``{element}.photon.yamc.arrow/`` will be created.
+        A subdirectory named ``{element}.arrow/`` will be created.
     atom_path : str or Path, optional
         Path to an atomic relaxation ENDF file.
     library : str, optional
@@ -84,7 +84,7 @@ def convert_photon(input_path, output_dir, *, atom_path=None, library=""):
     else:
         data = openmc.data.IncidentPhoton.from_endf(input_path)
 
-    arrow_path = output_dir / f"{data.name}.photon.yamc.arrow"
+    arrow_path = output_dir / f"{data.name}.arrow"
     export_photon_to_arrow(data, arrow_path, library=library)
     return arrow_path
 

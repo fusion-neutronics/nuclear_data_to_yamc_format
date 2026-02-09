@@ -38,10 +38,10 @@ from nuclear_data_to_yamc_format import convert_neutron
 convert_neutron(input_path="92235.710nc", output_dir="output/", library="endfb-8.0")
 ```
 
-This creates `output/U235.yamc.arrow/` containing:
+This creates `output/U235.arrow/` containing:
 
 ```text
-output/U235.yamc.arrow/
+output/U235.arrow/
 ├── version.json
 ├── nuclide.arrow
 ├── reactions.arrow       ← includes synthesized MTs 1, 3, 4, 27, 101
@@ -58,7 +58,7 @@ source library, and converter version.
 
 ## What's in the output?
 
-The `.yamc.arrow/` format is **simulation-ready**.  Unlike raw Arrow exports,
+The `.arrow/` format is **simulation-ready**.  Unlike raw Arrow exports,
 it includes all the post-processing that yamc would otherwise do at load time:
 
 Hierarchical MT synthesis

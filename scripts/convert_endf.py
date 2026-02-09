@@ -75,7 +75,7 @@ def process_neutron_arrow(endf_path, output_dir, temperatures=None, library=""):
     except Exception as e:
         print(f'{endf_path}: {e}')
         raise
-    arrow_dir = output_dir / f'{data.name}.yamc.arrow'
+    arrow_dir = output_dir / f'{data.name}.arrow'
     print(f'Writing {arrow_dir} ...')
     export_neutron_to_arrow(data, arrow_dir, library=library)
 

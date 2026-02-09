@@ -2,12 +2,12 @@
 
 **nuclear_data_to_yamc_format** converts nuclear data files (ACE or ENDF) into
 simulation-ready [Apache Arrow IPC](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)
-directories (`.yamc.arrow/`).  The output includes pre-computed hierarchical MT
+directories (`.arrow/`).  The output includes pre-computed hierarchical MT
 cross sections, FastXSGrid lookup tables, and log-space photon data — everything
 yamc needs to start a simulation with near-zero load time.
 
 ```text
-ACE  ──────────────────► OpenMC objects ──► .yamc.arrow/
+ACE  ──────────────────► OpenMC objects ──► .arrow/
                               │
 ENDF ──► NJOY ──────────►    │    └── synthesize MTs (1,3,4,27,101)
                                   └── build FastXSGrid (8000 log bins)
@@ -41,10 +41,10 @@ convert_photon(
 
 ## Output structure
 
-### Neutron: `Fe56.yamc.arrow/`
+### Neutron: `Fe56.arrow/`
 
 ```text
-Fe56.yamc.arrow/
+Fe56.arrow/
 ├── version.json          ← format version, library name, timestamps
 ├── nuclide.arrow         ← metadata, energy grids
 ├── reactions.arrow       ← all MTs incl. synthesized 1,3,4,27,101
@@ -55,10 +55,10 @@ Fe56.yamc.arrow/
 └── total_nu.arrow        (optional: fission neutron yield)
 ```
 
-### Photon: `Fe.photon.yamc.arrow/`
+### Photon: `Fe.arrow/`
 
 ```text
-Fe.photon.yamc.arrow/
+Fe.arrow/
 ├── version.json
 ├── element.arrow         ← metadata, energy + ln(energy), XS + ln(XS)
 ├── subshells.arrow       ← photoionization per subshell with ln(XS)

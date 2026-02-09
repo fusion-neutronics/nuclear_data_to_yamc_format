@@ -5,10 +5,10 @@ Each nuclide or element is stored as a directory of Arrow IPC files.  Every
 memory-mapped.  The format is simulation-ready: synthesized MTs, FastXSGrid
 lookup tables, and log-space cross sections are pre-computed.
 
-## Neutron data: `{name}.yamc.arrow/`
+## Neutron data: `{name}.arrow/`
 
 ```text
-Li6.yamc.arrow/
+Li6.arrow/
 ├── version.json
 ├── nuclide.arrow
 ├── reactions.arrow
@@ -179,10 +179,10 @@ One row.  Only present for fissile nuclides with total nu data.
 | `yield_interpolation` | `list<int32>` | Interpolation codes |
 
 
-## Photon data: `{element}.photon.yamc.arrow/`
+## Photon data: `{element}.arrow/`
 
 ```text
-Fe.photon.yamc.arrow/
+Fe.arrow/
 ├── version.json
 ├── element.arrow
 ├── subshells.arrow

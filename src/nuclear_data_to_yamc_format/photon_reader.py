@@ -1,4 +1,4 @@
-"""Read a simulation-ready .yamc.arrow/ photon directory back into Python dicts."""
+"""Read a simulation-ready .arrow/ photon directory back into Python dicts."""
 
 import json
 from pathlib import Path
@@ -32,12 +32,12 @@ def _read_single_row(table):
 
 
 def read_photon_from_arrow(path):
-    """Read a .yamc.arrow/ photon directory into a dict of dicts/lists.
+    """Read a .arrow/ photon directory into a dict of dicts/lists.
 
     Parameters
     ----------
     path : str or Path
-        Path to the Arrow directory (e.g., "Fe.photon.yamc.arrow").
+        Path to the Arrow directory (e.g., "Fe.arrow").
 
     Returns
     -------

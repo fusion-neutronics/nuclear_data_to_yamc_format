@@ -1,4 +1,4 @@
-"""Test photon data roundtrip: HDF5 -> OpenMC object -> .yamc.arrow/ -> readback."""
+"""Test photon data roundtrip: HDF5 -> OpenMC object -> .arrow/ -> readback."""
 
 import json
 import tempfile
@@ -21,7 +21,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
 
             # Check files exist
@@ -48,7 +48,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -67,7 +67,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -85,7 +85,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -113,7 +113,7 @@ class TestPhotonRoundtrip:
             pytest.skip("No Compton profile data")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -149,7 +149,7 @@ class TestPhotonRoundtrip:
             pytest.skip("No bremsstrahlung data")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -167,7 +167,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.arrow"
             export_photon_to_arrow(data, arrow_path, library="test-lib")
 
             version = json.loads((arrow_path / "version.json").read_text())

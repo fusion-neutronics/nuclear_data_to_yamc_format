@@ -3,7 +3,7 @@
 ## Conversion functions
 
 High-level entry points that accept source files (ACE or ENDF) and write
-simulation-ready `.yamc.arrow/` output.
+simulation-ready `.arrow/` output.
 
 ```{autofunction} nuclear_data_to_yamc_format.convert_neutron
 ```
@@ -24,7 +24,7 @@ data through your own pipeline.
 
 ## Readers
 
-Read `.yamc.arrow/` directories back into Python dicts for inspection or
+Read `.arrow/` directories back into Python dicts for inspection or
 verification.
 
 ```{autofunction} nuclear_data_to_yamc_format.neutron_reader.read_neutron_from_arrow

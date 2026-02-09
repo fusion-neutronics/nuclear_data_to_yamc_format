@@ -1,4 +1,4 @@
-"""Export an OpenMC IncidentNeutron object to a simulation-ready .yamc.arrow/ directory."""
+"""Export an OpenMC IncidentNeutron object to a simulation-ready .arrow/ directory."""
 
 import json
 from datetime import datetime, timezone
@@ -432,14 +432,14 @@ def _write_arrow_ipc(table, filepath):
 
 
 def export_neutron_to_arrow(data, path, *, library=""):
-    """Export an IncidentNeutron object to a simulation-ready .yamc.arrow/ directory.
+    """Export an IncidentNeutron object to a simulation-ready .arrow/ directory.
 
     Parameters
     ----------
     data : openmc.data.IncidentNeutron
         The incident neutron data to export.
     path : str or Path
-        Directory path to write Arrow files to (e.g., "Li6.yamc.arrow").
+        Directory path to write Arrow files to (e.g., "Li6.arrow").
     library : str, optional
         Library name (e.g., "endfb-8.0", "fendl-3.2c").
     """
