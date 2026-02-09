@@ -1,10 +1,12 @@
-"""Export an OpenMC IncidentNeutron object to an Arrow IPC directory."""
+"""Export an OpenMC IncidentNeutron object to a simulation-ready .yamc.arrow/ directory."""
 
+import json
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-import pyarrow.feather as pf
+import pyarrow.ipc as ipc
 
 from openmc.data.function import Tabulated1D, Polynomial
 from openmc.data.reaction import REACTION_NAME
@@ -16,6 +18,12 @@ from .schemas import (
     DISTRIBUTIONS_SCHEMA,
     URR_SCHEMA,
     TOTAL_NU_SCHEMA,
+    FAST_XS_SCHEMA,
+)
+from .synthesis import (
+    SYNTHETIC_MTS,
+    synthesize_hierarchical_mts,
+    build_fast_xs,
 )
 
 
@@ -187,7 +195,6 @@ def _serialize_energy_distribution(energy_dist):
 
     elif isinstance(energy_dist, MadlandNix):
         result["energy_dist_type"] = "madland-nix"
-        # Store efl and efh in restriction_u and threshold as auxiliary
         result["energy_restriction_u"] = float(energy_dist.efl)
         result["energy_threshold"] = float(energy_dist.efh)
         x, y, _, _ = _serialize_tabulated1d(energy_dist.tm)
@@ -209,7 +216,6 @@ def _serialize_correlated(dist):
     result["corr_breakpoints"] = list(int(b) for b in dist.breakpoints)
     result["corr_interpolation"] = list(int(i) for i in dist.interpolation)
 
-    # Build energy-out array (5 rows x n_tuple columns)
     mu_tabular = []
     for i, mu_i in enumerate(dist.mu):
         row = []
@@ -278,9 +284,6 @@ def _serialize_correlated(dist):
     result["corr_eout_interp"] = interp.tolist()
     result["corr_eout_n_discrete"] = n_discrete.tolist()
     result["corr_mu_data"] = mu.ravel(order='C').tolist()
-    # Compute mu offsets per energy-out point for readback
-    # (stored as cumulative offsets into the mu flat array)
-    # We already have these in eout[4,:] but store separately for clarity
     result["corr_mu_offsets"] = [int(eout[4, k]) for k in range(n_eout)]
     result["corr_mu_interp"] = [int(eout[3, k]) for k in range(n_eout)]
     return result
@@ -353,7 +356,6 @@ def _build_distribution_row(mt, product_idx, dist_idx, dist, applicability_obj):
         "dist_idx": dist_idx,
     }
 
-    # All nullable columns default to None
     nullable_cols = [
         "applicability_data", "applicability_shape",
         "applicability_breakpoints", "applicability_interpolation",
@@ -379,7 +381,6 @@ def _build_distribution_row(mt, product_idx, dist_idx, dist, applicability_obj):
     for col in nullable_cols:
         row[col] = None
 
-    # Applicability
     if applicability_obj is not None:
         data, shape, bp, interp = _serialize_applicability(applicability_obj)
         row["applicability_data"] = data
@@ -422,21 +423,43 @@ def _build_distribution_row(mt, product_idx, dist_idx, dist, applicability_obj):
     return row
 
 
-def export_neutron_to_arrow(data, path):
-    """Export an IncidentNeutron object to an Arrow IPC directory.
+def _write_arrow_ipc(table, filepath):
+    """Write a PyArrow table as Arrow IPC (not Feather)."""
+    with pa.OSFile(str(filepath), 'wb') as f:
+        writer = ipc.new_file(f, table.schema)
+        writer.write_table(table)
+        writer.close()
+
+
+def export_neutron_to_arrow(data, path, *, library=""):
+    """Export an IncidentNeutron object to a simulation-ready .yamc.arrow/ directory.
 
     Parameters
     ----------
     data : openmc.data.IncidentNeutron
         The incident neutron data to export.
     path : str or Path
-        Directory path to write Arrow files to (e.g., "Li6.arrow").
+        Directory path to write Arrow files to (e.g., "Li6.yamc.arrow").
+    library : str, optional
+        Library name (e.g., "endfb-8.0", "fendl-3.2c").
     """
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
 
     # ------------------------------------------------------------------
-    # 1. nuclide.feather
+    # 0. version.json
+    # ------------------------------------------------------------------
+    from . import __version__
+    version_info = {
+        "format_version": 1,
+        "library": library,
+        "converter_version": __version__,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    (path / "version.json").write_text(json.dumps(version_info, indent=2))
+
+    # ------------------------------------------------------------------
+    # 1. nuclide.arrow
     # ------------------------------------------------------------------
     temperatures = list(data.temperatures)
     kts = [float(data.kTs[i]) for i in range(len(temperatures))]
@@ -459,21 +482,64 @@ def export_neutron_to_arrow(data, path):
         },
         schema=NUCLIDE_SCHEMA,
     )
-    pf.write_feather(nuclide_table, path / "nuclide.feather")
+    _write_arrow_ipc(nuclide_table, path / "nuclide.arrow")
 
     # ------------------------------------------------------------------
-    # 2. reactions.feather  +  products.feather  +  distributions.feather
+    # 2. Synthesize MTs + build fast_xs for each temperature
+    # ------------------------------------------------------------------
+    all_synthetic = {}  # temperature -> {mt: xs_array}
+    fast_xs_rows = []
+
+    for temp in temperatures:
+        synth = synthesize_hierarchical_mts(data, temp)
+        all_synthetic[temp] = synth
+        fxs = build_fast_xs(data, temp, synth)
+
+        xs_shape = list(fxs["xs"].shape)
+        scatter_shape = list(fxs["scatter_mt_xs"].shape)
+        fission_shape = list(fxs["fission_mt_xs"].shape)
+
+        fast_xs_rows.append({
+            "temperature": temp,
+            "log_e_min": fxs["log_e_min"],
+            "inv_log_delta": fxs["inv_log_delta"],
+            "log_grid_index": fxs["log_grid_index"].tolist(),
+            "xs": fxs["xs"].ravel(order='C').tolist(),
+            "xs_shape": xs_shape,
+            "energy": fxs["energy"].tolist(),
+            "scatter_mt_numbers": fxs["scatter_mt_numbers"],
+            "scatter_mt_xs": fxs["scatter_mt_xs"].ravel(order='C').tolist(),
+            "scatter_mt_shape": scatter_shape,
+            "fission_mt_numbers": fxs["fission_mt_numbers"],
+            "fission_mt_xs": fxs["fission_mt_xs"].ravel(order='C').tolist(),
+            "fission_mt_shape": fission_shape,
+            "has_partial_fission": fxs["has_partial_fission"],
+            "xs_ngamma": fxs["xs_ngamma"].tolist(),
+            "photon_prod": fxs["photon_prod"].tolist(),
+        })
+
+    # Write fast_xs.arrow
+    if fast_xs_rows:
+        fast_xs_table = pa.table(
+            {col: [r[col] for r in fast_xs_rows]
+             for col in FAST_XS_SCHEMA.names},
+            schema=FAST_XS_SCHEMA,
+        )
+        _write_arrow_ipc(fast_xs_table, path / "fast_xs.arrow")
+
+    # ------------------------------------------------------------------
+    # 3. reactions.arrow + products.arrow + distributions.arrow
     # ------------------------------------------------------------------
     reaction_rows = []
     product_rows = []
     distribution_rows = []
     total_nu_written = False
+    total_nu_row = None
 
+    # First, write original (non-synthetic) reactions
     for rx in data.reactions.values():
-        # Reaction label
         label = REACTION_NAME.get(rx.mt, str(rx.mt))
 
-        # Cross sections by temperature
         xs_temps = []
         xs_vals = []
         xs_thresh = []
@@ -544,6 +610,43 @@ def export_neutron_to_arrow(data, path):
                 "yield_interpolation": yield_interp,
             }
 
+    # Now add synthesized MT rows
+    _SYNTH_LABELS = {
+        1: "(n,total)",
+        3: "(n,non-elastic)",
+        4: "(n,inelastic)",
+        27: "(n,absorption)",
+        101: "(n,disappearance)",
+    }
+    for mt in sorted(SYNTHETIC_MTS):
+        # Skip if this MT already exists as an original reaction
+        if mt in data.reactions:
+            continue
+
+        xs_temps = []
+        xs_vals = []
+        xs_thresh = []
+        for temp in temperatures:
+            xs_temps.append(temp)
+            synth_xs = all_synthetic[temp].get(mt)
+            if synth_xs is not None:
+                xs_vals.append(synth_xs.tolist())
+            else:
+                xs_vals.append([])
+            xs_thresh.append(0)
+
+        reaction_rows.append({
+            "mt": mt,
+            "label": _SYNTH_LABELS.get(mt, str(mt)),
+            "Q_value": 0.0,
+            "center_of_mass": False,
+            "redundant": True,
+            "xs_temperatures": xs_temps,
+            "xs_values": xs_vals,
+            "xs_threshold_idx": xs_thresh,
+            "n_products": 0,
+        })
+
     # Write reactions
     if reaction_rows:
         reactions_table = pa.table(
@@ -551,7 +654,7 @@ def export_neutron_to_arrow(data, path):
              for col in REACTIONS_SCHEMA.names},
             schema=REACTIONS_SCHEMA,
         )
-        pf.write_feather(reactions_table, path / "reactions.feather")
+        _write_arrow_ipc(reactions_table, path / "reactions.arrow")
 
     # Write products
     if product_rows:
@@ -560,7 +663,7 @@ def export_neutron_to_arrow(data, path):
              for col in PRODUCTS_SCHEMA.names},
             schema=PRODUCTS_SCHEMA,
         )
-        pf.write_feather(products_table, path / "products.feather")
+        _write_arrow_ipc(products_table, path / "products.arrow")
 
     # Write distributions
     if distribution_rows:
@@ -569,10 +672,10 @@ def export_neutron_to_arrow(data, path):
              for col in DISTRIBUTIONS_SCHEMA.names},
             schema=DISTRIBUTIONS_SCHEMA,
         )
-        pf.write_feather(distributions_table, path / "distributions.feather")
+        _write_arrow_ipc(distributions_table, path / "distributions.arrow")
 
     # ------------------------------------------------------------------
-    # 3. urr.feather (optional)
+    # 4. urr.arrow (optional)
     # ------------------------------------------------------------------
     if data.urr:
         urr_rows = []
@@ -592,14 +695,14 @@ def export_neutron_to_arrow(data, path):
             {col: [r[col] for r in urr_rows] for col in URR_SCHEMA.names},
             schema=URR_SCHEMA,
         )
-        pf.write_feather(urr_table, path / "urr.feather")
+        _write_arrow_ipc(urr_table, path / "urr.arrow")
 
     # ------------------------------------------------------------------
-    # 4. total_nu.feather (optional)
+    # 5. total_nu.arrow (optional)
     # ------------------------------------------------------------------
-    if total_nu_written:
+    if total_nu_written and total_nu_row is not None:
         total_nu_table = pa.table(
             {col: [total_nu_row[col]] for col in TOTAL_NU_SCHEMA.names},
             schema=TOTAL_NU_SCHEMA,
         )
-        pf.write_feather(total_nu_table, path / "total_nu.feather")
+        _write_arrow_ipc(total_nu_table, path / "total_nu.arrow")

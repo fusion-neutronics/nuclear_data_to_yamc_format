@@ -1,22 +1,40 @@
 # Arrow file format
 
-Each nuclide or element is stored as a directory of Arrow IPC (Feather v2)
-files.  Every `.feather` file is a self-contained table that can be
-independently memory-mapped.
+Each nuclide or element is stored as a directory of Arrow IPC files.  Every
+`.arrow` file is a self-contained table that can be independently
+memory-mapped.  The format is simulation-ready: synthesized MTs, FastXSGrid
+lookup tables, and log-space cross sections are pre-computed.
 
-## Neutron data: `{name}.arrow/`
+## Neutron data: `{name}.yamc.arrow/`
 
 ```text
-Li6.arrow/
-├── nuclide.feather
-├── reactions.feather
-├── products.feather
-├── distributions.feather
-├── urr.feather            (optional)
-└── total_nu.feather       (optional)
+Li6.yamc.arrow/
+├── version.json
+├── nuclide.arrow
+├── reactions.arrow
+├── products.arrow
+├── distributions.arrow
+├── fast_xs.arrow
+├── urr.arrow            (optional)
+└── total_nu.arrow       (optional)
 ```
 
-### nuclide.feather
+### version.json
+
+Format metadata written at conversion time.
+
+```json
+{
+  "format_version": 1,
+  "library": "fendl-3.2c",
+  "converter_version": "0.1.0",
+  "created_utc": "2026-02-08T14:30:00Z"
+}
+```
+
+The reader checks `format_version` and rejects incompatible versions.
+
+### nuclide.arrow
 
 One row of nuclide-level metadata and energy grids.
 
@@ -32,11 +50,11 @@ One row of nuclide-level metadata and energy grids.
 | `energy_temperatures` | `list<utf8>` | Temperature keys for energy grids |
 | `energy_values` | `list<list<float64>>` | Energy grids per temperature |
 
-File-level metadata: `filetype=data_neutron`, `version=3.0`
+File-level metadata: `filetype=data_neutron`, `version=4.0`
 
-### reactions.feather
+### reactions.arrow
 
-One row per reaction.
+One row per reaction, including synthesized MTs (1, 3, 4, 27, 101).
 
 | Column | Type | Description |
 |---|---|---|
@@ -44,13 +62,13 @@ One row per reaction.
 | `label` | `utf8` | Reaction name |
 | `Q_value` | `float64` | Q-value in eV |
 | `center_of_mass` | `bool` | Center-of-mass frame flag |
-| `redundant` | `bool` | Redundant reaction flag |
+| `redundant` | `bool` | Redundant reaction flag (True for synthesized MTs) |
 | `xs_temperatures` | `list<utf8>` | Temperature keys |
 | `xs_values` | `list<list<float64>>` | Cross-section arrays per temperature |
 | `xs_threshold_idx` | `list<int32>` | Threshold index per temperature |
 | `n_products` | `int32` | Number of products for this reaction |
 
-### products.feather
+### products.arrow
 
 One row per product across all reactions.
 
@@ -68,7 +86,7 @@ One row per product across all reactions.
 | `yield_breakpoints` | `list<int32>` | Interpolation breakpoints |
 | `yield_interpolation` | `list<int32>` | Interpolation codes |
 
-### distributions.feather
+### distributions.arrow
 
 One row per angle-energy distribution.  Most columns are nullable — only the
 columns relevant to each distribution type are populated.
@@ -105,7 +123,31 @@ columns relevant to each distribution type are populated.
 `nbody_n`, `nbody_total_mass`, `nbody_atomic_weight_ratio`,
 `nbody_q_value`
 
-### urr.feather
+### fast_xs.arrow
+
+One row per temperature.  Contains the FastXSGrid lookup table for O(1)
+cross-section retrieval during transport.
+
+| Column | Type | Description |
+|---|---|---|
+| `temperature` | `utf8` | e.g. `"294K"` |
+| `log_e_min` | `float64` | log of minimum energy |
+| `inv_log_delta` | `float64` | Inverse of log bin width |
+| `log_grid_index` | `list<int32>` | Grid index per log bin (8001 entries) |
+| `xs` | `list<float64>` | Flattened (n_energy, 4) — [total, absorption, scatter, fission] |
+| `xs_shape` | `list<int32>` | `[n_energy, 4]` |
+| `energy` | `list<float64>` | Full energy grid |
+| `scatter_mt_numbers` | `list<int32>` | MT numbers for scattering channels |
+| `scatter_mt_xs` | `list<float64>` | Flattened (n_energy, n_scatter) |
+| `scatter_mt_shape` | `list<int32>` | Shape of scatter_mt_xs |
+| `fission_mt_numbers` | `list<int32>` | MT numbers for fission channels |
+| `fission_mt_xs` | `list<float64>` | Flattened (n_energy, n_fission) |
+| `fission_mt_shape` | `list<int32>` | Shape of fission_mt_xs |
+| `has_partial_fission` | `bool` | True if partial fission MTs present |
+| `xs_ngamma` | `list<float64>` | (n,gamma) capture XS |
+| `photon_prod` | `list<float64>` | Photon production XS |
+
+### urr.arrow
 
 One row per temperature.  Only present if unresolved resonance probability
 tables exist.
@@ -121,7 +163,7 @@ tables exist.
 | `absorption` | `int32` | Absorption flag |
 | `multiply_smooth` | `bool` | Multiply-by-smooth-XS flag |
 
-### total_nu.feather
+### total_nu.arrow
 
 One row.  Only present for fissile nuclides with total nu data.
 
@@ -137,29 +179,38 @@ One row.  Only present for fissile nuclides with total nu data.
 | `yield_interpolation` | `list<int32>` | Interpolation codes |
 
 
-## Photon data: `{element}.photon.arrow/`
+## Photon data: `{element}.photon.yamc.arrow/`
 
 ```text
-Fe.photon.arrow/
-├── element.feather
-├── subshells.feather
-├── compton.feather
-└── bremsstrahlung.feather
+Fe.photon.yamc.arrow/
+├── version.json
+├── element.arrow
+├── subshells.arrow
+├── compton.arrow
+└── bremsstrahlung.arrow
 ```
 
-### element.feather
+### version.json
+
+Same structure as neutron version.json.
+
+### element.arrow
 
 One row of element-level data: metadata, union energy grid, main cross
-sections, and form factors.
+sections (both linear and log-space), and form factors.
 
 | Column | Type | Description |
 |---|---|---|
 | `name` | `utf8` | Element symbol |
 | `Z` | `int32` | Atomic number |
 | `energy` | `list<float64>` | Union energy grid (eV) |
+| `ln_energy` | `list<float64>` | log of energy grid |
 | `coherent_xs` | `list<float64>` | Coherent scattering cross section |
+| `ln_coherent_xs` | `list<float64>` | log of coherent XS |
 | `incoherent_xs` | `list<float64>` | Incoherent scattering cross section |
+| `ln_incoherent_xs` | `list<float64>` | log of incoherent XS |
 | `photoelectric_xs` | `list<float64>` | Photoelectric cross section |
+| `ln_photoelectric_xs` | `list<float64>` | log of photoelectric XS |
 | `pair_production_nuclear_xs` | `list<float64>` | Nuclear pair production cross section |
 | `pair_production_electron_xs` | `list<float64>` | Electron pair production cross section |
 | `heating_xs` | `list<float64>` | Heating cross section |
@@ -169,9 +220,9 @@ sections, and form factors.
 | `coherent_anomalous_imag_x` / `_y` | `list<float64>` | Imaginary anomalous scattering factor |
 | `incoherent_ff_x` / `_y` | `list<float64>` | Incoherent scattering function |
 
-File-level metadata: `filetype=data_photon`, `version=3.0`
+File-level metadata: `filetype=data_photon`, `version=4.0`
 
-### subshells.feather
+### subshells.arrow
 
 One row per subshell.
 
@@ -181,13 +232,15 @@ One row per subshell.
 | `binding_energy` | `float64` | Binding energy (eV) |
 | `num_electrons` | `float64` | Number of electrons |
 | `xs` | `list<float64>` | Photoionization cross section |
+| `ln_xs` | `list<float64>` | log of photoionization XS |
 | `threshold_idx` | `int32` | Index into the union energy grid |
 | `transitions_data` | `list<float64>` | Flattened transition matrix (nullable) |
 | `transitions_shape` | `list<int32>` | Shape of the transition matrix (nullable) |
 
-### compton.feather
+### compton.arrow
 
-One row.  Present when Compton profile data exists.
+One row.  Present when Compton profile data exists.  Includes pre-computed
+CDFs from trapezoidal integration.
 
 | Column | Type | Description |
 |---|---|---|
@@ -196,8 +249,10 @@ One row.  Present when Compton profile data exists.
 | `pz` | `list<float64>` | Electron momentum grid |
 | `J_data` | `list<float64>` | Flattened Compton profiles (C order) |
 | `J_shape` | `list<int32>` | `[n_shells, n_momentum]` |
+| `J_cdf_data` | `list<float64>` | Flattened Compton profile CDFs (C order) |
+| `J_cdf_shape` | `list<int32>` | `[n_shells, n_momentum]` |
 
-### bremsstrahlung.feather
+### bremsstrahlung.arrow
 
 One row.  Present when bremsstrahlung data exists.
 

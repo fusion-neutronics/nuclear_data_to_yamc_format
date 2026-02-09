@@ -1,5 +1,6 @@
-"""Test photon data roundtrip: HDF5 → OpenMC object → Arrow → readback."""
+"""Test photon data roundtrip: HDF5 -> OpenMC object -> .yamc.arrow/ -> readback."""
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -7,7 +8,9 @@ import numpy as np
 import pytest
 import openmc.data
 
-from nuclear_data_to_yamc_format import export_photon_to_arrow, read_photon_from_arrow, verify_photon
+from nuclear_data_to_yamc_format import (
+    export_photon_to_arrow, read_photon_from_arrow, verify_photon,
+)
 
 
 class TestPhotonRoundtrip:
@@ -18,14 +21,19 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
             export_photon_to_arrow(data, arrow_path)
 
             # Check files exist
-            assert (arrow_path / "element.feather").exists()
+            assert (arrow_path / "version.json").exists()
+            assert (arrow_path / "element.arrow").exists()
 
             # Read back
             arrow_data = read_photon_from_arrow(arrow_path)
+
+            # Verify version.json
+            assert "version" in arrow_data
+            assert arrow_data["version"]["format_version"] == 1
 
             # Verify metadata
             elem = arrow_data["element"]
@@ -40,7 +48,7 @@ class TestPhotonRoundtrip:
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -54,12 +62,30 @@ class TestPhotonRoundtrip:
             np.testing.assert_array_equal(
                 np.array(elem["energy"]), union_grid)
 
-    def test_subshells(self, photon_h5_path):
-        """Test that subshell data is preserved."""
+    def test_log_space_data(self, photon_h5_path):
+        """Test that log-space energy and XS are present and correct."""
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            export_photon_to_arrow(data, arrow_path)
+            arrow_data = read_photon_from_arrow(arrow_path)
+
+            elem = arrow_data["element"]
+
+            # Check ln_energy exists and matches log of energy
+            assert "ln_energy" in elem
+            energy = np.array(elem["energy"])
+            ln_energy = np.array(elem["ln_energy"])
+            expected_ln = np.log(energy)
+            np.testing.assert_allclose(ln_energy, expected_ln, rtol=1e-14)
+
+    def test_subshells(self, photon_h5_path):
+        """Test that subshell data is preserved with log-space XS."""
+        data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -67,16 +93,27 @@ class TestPhotonRoundtrip:
                 for sub in arrow_data["subshells"]:
                     assert sub["designator"] is not None
                     assert len(sub["xs"]) > 0
+                    # Verify ln_xs is present
+                    assert "ln_xs" in sub
+                    if sub["ln_xs"] is not None and len(sub["ln_xs"]) > 0:
+                        xs = np.array(sub["xs"])
+                        ln_xs = np.array(sub["ln_xs"])
+                        # Log of XS values (with safe handling of zeros)
+                        mask = xs > 0
+                        if np.any(mask):
+                            np.testing.assert_allclose(
+                                ln_xs[mask], np.log(xs[mask]),
+                                rtol=1e-14)
 
     def test_compton_profiles(self, photon_h5_path):
-        """Test that Compton profile data is preserved."""
+        """Test that Compton profile data is preserved with CDFs."""
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
 
         if not data.compton_profiles:
             pytest.skip("No Compton profile data")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -94,6 +131,16 @@ class TestPhotonRoundtrip:
                 np.array(cmp["pz"]),
                 np.array(profile['J'][0].x))
 
+            # Verify CDFs exist and are valid
+            assert "J_cdf_data" in cmp
+            if cmp["J_cdf_data"] is not None and len(cmp["J_cdf_data"]) > 0:
+                cdf = np.array(cmp["J_cdf_data"]).reshape(cmp["J_cdf_shape"])
+                # CDFs should end at 1.0
+                for s in range(cdf.shape[0]):
+                    np.testing.assert_allclose(cdf[s, -1], 1.0, atol=1e-10)
+                    # Should be monotonically non-decreasing
+                    assert np.all(cdf[s, 1:] >= cdf[s, :-1] - 1e-15)
+
     def test_bremsstrahlung(self, photon_h5_path):
         """Test that bremsstrahlung data is preserved."""
         data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
@@ -102,7 +149,7 @@ class TestPhotonRoundtrip:
             pytest.skip("No bremsstrahlung data")
 
         with tempfile.TemporaryDirectory() as tmpdir:
-            arrow_path = Path(tmpdir) / f"{data.name}.photon.arrow"
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
             export_photon_to_arrow(data, arrow_path)
             arrow_data = read_photon_from_arrow(arrow_path)
 
@@ -114,3 +161,17 @@ class TestPhotonRoundtrip:
             np.testing.assert_array_equal(
                 np.array(abrem["electron_energy"]),
                 np.array(brem['electron_energy']))
+
+    def test_version_json(self, photon_h5_path):
+        """Test that version.json contains expected fields."""
+        data = openmc.data.IncidentPhoton.from_hdf5(photon_h5_path)
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            arrow_path = Path(tmpdir) / f"{data.name}.photon.yamc.arrow"
+            export_photon_to_arrow(data, arrow_path, library="test-lib")
+
+            version = json.loads((arrow_path / "version.json").read_text())
+            assert version["format_version"] == 1
+            assert version["library"] == "test-lib"
+            assert "converter_version" in version
+            assert "created_utc" in version

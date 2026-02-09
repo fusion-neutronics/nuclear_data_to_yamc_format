@@ -1,9 +1,20 @@
-"""Read Arrow IPC neutron data back into Python dicts for verification."""
+"""Read a simulation-ready .yamc.arrow/ neutron directory back into Python dicts."""
 
+import json
 from pathlib import Path
 
-import numpy as np
-import pyarrow.feather as pf
+import pyarrow.ipc as ipc
+
+
+def _read_arrow_ipc(filepath):
+    """Read an Arrow IPC file into a PyArrow table."""
+    with pa.OSFile(str(filepath), 'rb') as f:
+        reader = ipc.open_file(f)
+        return reader.read_all()
+
+
+# We need pa for OSFile
+import pyarrow as pa
 
 
 def _to_list(val):
@@ -23,77 +34,92 @@ def _read_single_row(table):
     return row
 
 
+def _read_multi_row(table):
+    """Read a multi-row table into a list of dicts."""
+    rows = []
+    for i in range(len(table)):
+        row = {}
+        for name in table.schema.names:
+            row[name] = _to_list(table.column(name)[i])
+        rows.append(row)
+    return rows
+
+
 def read_neutron_from_arrow(path):
-    """Read an Arrow neutron directory into a dict of dicts/lists.
+    """Read a .yamc.arrow/ neutron directory into a dict of dicts/lists.
 
     Parameters
     ----------
     path : str or Path
-        Path to the Arrow directory (e.g., "Li6.arrow").
+        Path to the Arrow directory (e.g., "Li6.yamc.arrow").
 
     Returns
     -------
     dict
-        Dictionary with keys: "nuclide", "reactions", "products",
-        "distributions", "urr" (optional), "total_nu" (optional).
+        Dictionary with keys: "version", "nuclide", "reactions", "products",
+        "distributions", "fast_xs", "urr" (optional), "total_nu" (optional).
     """
     path = Path(path)
     result = {}
 
+    # version.json
+    version_path = path / "version.json"
+    if version_path.exists():
+        result["version"] = json.loads(version_path.read_text())
+        fmt_ver = result["version"].get("format_version")
+        if fmt_ver is not None and fmt_ver > 1:
+            raise ValueError(
+                f"Unsupported format_version {fmt_ver} in {version_path}. "
+                f"This reader supports format_version <= 1."
+            )
+
     # nuclide
-    nuclide_table = pf.read_table(path / "nuclide.feather")
-    result["nuclide"] = _read_single_row(nuclide_table)
-    result["nuclide"]["_metadata"] = nuclide_table.schema.metadata
+    nuclide_file = path / "nuclide.arrow"
+    if nuclide_file.exists():
+        nuclide_table = _read_arrow_ipc(nuclide_file)
+        result["nuclide"] = _read_single_row(nuclide_table)
+        result["nuclide"]["_metadata"] = nuclide_table.schema.metadata
 
     # reactions
-    if (path / "reactions.feather").exists():
-        reactions_table = pf.read_table(path / "reactions.feather")
-        result["reactions"] = []
-        for i in range(len(reactions_table)):
-            row = {}
-            for name in reactions_table.schema.names:
-                row[name] = _to_list(reactions_table.column(name)[i])
-            result["reactions"].append(row)
+    reactions_file = path / "reactions.arrow"
+    if reactions_file.exists():
+        reactions_table = _read_arrow_ipc(reactions_file)
+        result["reactions"] = _read_multi_row(reactions_table)
     else:
         result["reactions"] = []
 
     # products
-    if (path / "products.feather").exists():
-        products_table = pf.read_table(path / "products.feather")
-        result["products"] = []
-        for i in range(len(products_table)):
-            row = {}
-            for name in products_table.schema.names:
-                row[name] = _to_list(products_table.column(name)[i])
-            result["products"].append(row)
+    products_file = path / "products.arrow"
+    if products_file.exists():
+        products_table = _read_arrow_ipc(products_file)
+        result["products"] = _read_multi_row(products_table)
     else:
         result["products"] = []
 
     # distributions
-    if (path / "distributions.feather").exists():
-        distributions_table = pf.read_table(path / "distributions.feather")
-        result["distributions"] = []
-        for i in range(len(distributions_table)):
-            row = {}
-            for name in distributions_table.schema.names:
-                row[name] = _to_list(distributions_table.column(name)[i])
-            result["distributions"].append(row)
+    distributions_file = path / "distributions.arrow"
+    if distributions_file.exists():
+        distributions_table = _read_arrow_ipc(distributions_file)
+        result["distributions"] = _read_multi_row(distributions_table)
     else:
         result["distributions"] = []
 
+    # fast_xs
+    fast_xs_file = path / "fast_xs.arrow"
+    if fast_xs_file.exists():
+        fast_xs_table = _read_arrow_ipc(fast_xs_file)
+        result["fast_xs"] = _read_multi_row(fast_xs_table)
+
     # urr (optional)
-    if (path / "urr.feather").exists():
-        urr_table = pf.read_table(path / "urr.feather")
-        result["urr"] = []
-        for i in range(len(urr_table)):
-            row = {}
-            for name in urr_table.schema.names:
-                row[name] = _to_list(urr_table.column(name)[i])
-            result["urr"].append(row)
+    urr_file = path / "urr.arrow"
+    if urr_file.exists():
+        urr_table = _read_arrow_ipc(urr_file)
+        result["urr"] = _read_multi_row(urr_table)
 
     # total_nu (optional)
-    if (path / "total_nu.feather").exists():
-        total_nu_table = pf.read_table(path / "total_nu.feather")
+    total_nu_file = path / "total_nu.arrow"
+    if total_nu_file.exists():
+        total_nu_table = _read_arrow_ipc(total_nu_file)
         result["total_nu"] = _read_single_row(total_nu_table)
 
     return result

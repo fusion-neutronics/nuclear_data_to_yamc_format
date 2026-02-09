@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Download FENDL ACE/ENDF files and convert to Arrow format.
+Download FENDL ACE/ENDF files and convert to simulation-ready Arrow format.
 
 Mirrors openmc_data convert_fendl.py but replaces HDF5 export with Arrow export.
 """
@@ -64,6 +64,8 @@ def main():
     if args.destination is None:
         args.destination = Path("-".join([library_name, args.release, "arrow"]))
 
+    lib_name = f"fendl-{args.release}"
+
     release_details = all_release_details[library_name]
 
     output_warnings = []
@@ -123,7 +125,7 @@ def main():
             for filename in sorted(neutron_files):
                 print(f"Converting: {filename}")
                 convert_neutron(filename, particle_destination,
-                                source_format="ace")
+                                source_format="ace", library=lib_name)
 
             if args.cleanup and ace_files_dir.exists():
                 rmtree(ace_files_dir)
@@ -138,9 +140,9 @@ def main():
                 evaluations = openmc.data.endf.get_evaluations(photo_path)
                 for ev in evaluations:
                     data = openmc.data.IncidentPhoton.from_endf(ev)
-                    arrow_dir = particle_destination / f"{data.name}.photon.arrow"
+                    arrow_dir = particle_destination / f"{data.name}.photon.yamc.arrow"
                     print(f"Writing {arrow_dir}...")
-                    export_photon_to_arrow(data, arrow_dir)
+                    export_photon_to_arrow(data, arrow_dir, library=lib_name)
 
             if args.cleanup and endf_files_dir.exists():
                 rmtree(endf_files_dir)

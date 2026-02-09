@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 """
-Download ENDF/B-VIII.0 or ENDF/B-VII.1 library and convert to Arrow format.
+Download ENDF/B-VIII.0 or ENDF/B-VII.1 library and convert to simulation-ready Arrow format.
 
 Mirrors openmc_data generate_endf.py but replaces HDF5 export with Arrow export.
 The ENDF→NJOY→ACE→OpenMC pipeline stays the same; only the final export changes.
@@ -56,8 +56,14 @@ parser.add_argument('--temperatures', type=float,
 parser.set_defaults(download=True, extract=True, cleanup=False)
 args = parser.parse_args()
 
+# Map release to library name
+_LIBRARY_NAMES = {
+    'viii.0': 'endfb-8.0',
+    'vii.1': 'endfb-7.1',
+}
 
-def process_neutron_arrow(endf_path, output_dir, temperatures=None):
+
+def process_neutron_arrow(endf_path, output_dir, temperatures=None, library=""):
     """Process ENDF neutron file via NJOY and export to Arrow."""
     print(f'Converting: {endf_path}')
     try:
@@ -69,9 +75,9 @@ def process_neutron_arrow(endf_path, output_dir, temperatures=None):
     except Exception as e:
         print(f'{endf_path}: {e}')
         raise
-    arrow_dir = output_dir / f'{data.name}.arrow'
+    arrow_dir = output_dir / f'{data.name}.yamc.arrow'
     print(f'Writing {arrow_dir} ...')
-    export_neutron_to_arrow(data, arrow_dir)
+    export_neutron_to_arrow(data, arrow_dir, library=library)
 
 
 def main():
@@ -84,6 +90,8 @@ def main():
 
     if args.destination is None:
         args.destination = Path('-'.join([library_name, args.release, 'arrow']))
+
+    lib_name = _LIBRARY_NAMES.get(args.release, f'endfb-{args.release}')
 
     # Release details (same URLs as openmc_data generate_endf.py)
     release_details = {
@@ -121,7 +129,7 @@ def main():
                 if filename.name == 'n-000_n_001.endf':
                     continue
                 func_args = (filename, args.destination / particle,
-                             args.temperatures)
+                             args.temperatures, lib_name)
                 r = pool.apply_async(process_neutron_arrow, func_args)
                 results.append(r)
             for r in results:
@@ -136,7 +144,7 @@ def main():
                                          sorted(details['atom_files'])):
             print('Converting:', photo_path.name, atom_path.name)
             convert_photon(photo_path, args.destination / particle,
-                           atom_path=atom_path)
+                           atom_path=atom_path, library=lib_name)
 
 
 if __name__ == '__main__':

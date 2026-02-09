@@ -7,9 +7,12 @@ import pytest
 
 # Known locations with HDF5 nuclear data
 _SEARCH_DIRS = [
+    Path("/home/jon/yamc-org/yamc/tests"),
     Path("/home/jon/yamc/tests"),
     Path("/home/jon/cross_section_data_fendl_3.2c/fendl-3.2c-hdf5"),
     Path("/home/jon/tendl-2021-hdf5/tendl-2021-hdf5"),
+    Path("/home/jon/nuclear_data/fendl-3.2c-hdf5/photon"),
+    Path("/home/jon/nuclear_data/endf-b8.0-hdf5/photon"),
 ]
 
 

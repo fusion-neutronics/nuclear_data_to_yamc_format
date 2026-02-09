@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-"""Convert a single ACE or ENDF nuclear data file to Arrow format.
+"""Convert a single ACE or ENDF nuclear data file to simulation-ready Arrow format.
 
 Examples:
     # Neutron from ACE
@@ -14,6 +14,9 @@ Examples:
 
     # Photon from paired ENDF files
     python scripts/convert_single_file.py photon photoat-026_Fe_000.endf --atom atom-026_Fe_000.endf
+
+    # With library name
+    python scripts/convert_single_file.py neutron 92235.710nc --library endfb-8.0
 """
 
 import argparse
@@ -33,6 +36,8 @@ parser.add_argument("-o", "--output", type=Path, default=None,
                     help="Output directory (default: current directory)")
 parser.add_argument("--temperatures", type=float, nargs="+", default=None,
                     help="Temperatures in Kelvin (ENDF neutron only)")
+parser.add_argument("--library", type=str, default="",
+                    help="Library name (e.g., endfb-8.0, fendl-3.2c)")
 args = parser.parse_args()
 
 
@@ -44,11 +49,13 @@ def main():
             args.input, output_dir,
             source_format=args.format,
             temperatures=args.temperatures,
+            library=args.library,
         )
     else:
         arrow_path = convert_photon(
             args.input, output_dir,
             atom_path=args.atom,
+            library=args.library,
         )
 
     print(f"Wrote {arrow_path}")
