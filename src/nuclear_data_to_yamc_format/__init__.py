@@ -93,10 +93,45 @@ def convert_photon(input_path, output_dir, *, atom_path=None, library=""):
     return arrow_path
 
 
+def convert_photon_endf(input_path, output_dir, *, library=""):
+    """Convert a multi-evaluation ENDF photon file to Arrow format.
+
+    Some libraries (e.g. FENDL) bundle multiple elements into a single
+    ENDF file.  This function extracts each evaluation and writes a
+    separate Arrow directory for each element.
+
+    Parameters
+    ----------
+    input_path : str or Path
+        Path to an ENDF file containing one or more photoatomic evaluations.
+    output_dir : str or Path
+        Directory to write the Arrow output into.
+    library : str, optional
+        Library name (e.g., "fendl-3.2c").
+
+    Returns
+    -------
+    list of Path
+        Paths to the created Arrow directories.
+    """
+    input_path = Path(input_path)
+    output_dir = Path(output_dir)
+
+    evaluations = openmc.data.endf.get_evaluations(input_path)
+    paths = []
+    for ev in evaluations:
+        data = openmc.data.IncidentPhoton.from_endf(ev)
+        arrow_path = output_dir / f"{data.name}.arrow"
+        export_photon_to_arrow(data, arrow_path, library=library)
+        paths.append(arrow_path)
+    return paths
+
+
 __all__ = [
     "__version__",
     "convert_neutron",
     "convert_photon",
+    "convert_photon_endf",
     "export_neutron_to_arrow",
     "export_photon_to_arrow",
     "read_neutron_from_arrow",

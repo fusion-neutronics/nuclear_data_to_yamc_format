@@ -50,6 +50,19 @@ convert_photon(
 # creates output/Fe.arrow/
 ```
 
+For ENDF files containing multiple elements (e.g. FENDL bundles):
+
+```python
+from nuclear_data_to_yamc_format import convert_photon_endf
+
+convert_photon_endf(
+    input_path="fendl-photoat.endf",
+    output_dir="output/",
+    library="fendl-3.2c",
+)
+# creates output/H.arrow/, output/He.arrow/, ...
+```
+
 ## Command-line script
 
 A convenience script is included for single-file conversion:
@@ -74,18 +87,34 @@ python scripts/convert_single_file.py photon photoat-026_Fe_000.endf \
 Two scripts are provided for converting entire libraries:
 
 `scripts/convert_endf.py`
-: Downloads and converts the ENDF/B-VIII.0 (or VII.1) library.  Mirrors
-  the `openmc_data` `generate_endf.py` pipeline.  Automatically sets
-  the library name ("endfb-8.0" or "endfb-7.1").
+: Converts the ENDF/B-VIII.0 (or VII.1) library using NJOY for Doppler
+  broadening.  Automatically downloads ENDF files from NNDC if not found
+  locally (searches `./endfb-{release}-endf/` then
+  `~/nuclear_data/endfb-{release}-endf/`).  Processes neutrons in parallel.
+
+  ```bash
+  # Default: ENDF/B-VIII.0, 6 temperatures, output to ~/nuclear_data/endf-b8.0-arrow/
+  python scripts/convert_endf.py
+
+  # ENDF/B-VII.1 with custom temperatures
+  python scripts/convert_endf.py -r vii.1 --temperatures 293.6 600.0
+  ```
 
 `scripts/convert_fendl.py`
-: Downloads and converts the FENDL library.  Mirrors the `openmc_data`
-  `convert_fendl.py` pipeline.  Automatically sets the library name
-  (e.g., "fendl-3.2c").
+: Converts the FENDL library (ACE neutrons + ENDF photons).
+  Automatically downloads from IAEA if not found locally (searches
+  `./fendl-{release}-ace/` and `./fendl-{release}-endf/` then
+  `~/nuclear_data/fendl-{release}-{ace,endf}/`).
 
-Both scripts accept `--download` / `--no-download` and `--extract` /
-`--no-extract` flags so you can skip steps if the source files are already
-present.
+  ```bash
+  # Default: FENDL 3.2c, output to ./fendl-3.2c-arrow/
+  python scripts/convert_fendl.py
+
+  # FENDL 3.1d, custom output
+  python scripts/convert_fendl.py -r 3.1d -d /path/to/output
+  ```
+
+Both scripts accept `--cleanup` to remove source files after conversion.
 
 ## Reading Arrow files back
 
