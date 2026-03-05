@@ -103,8 +103,9 @@ def main():
         ]
         print(f"Found {len(neutron_files)} neutron ACE files")
 
-        for filename in neutron_files:
-            print(f"Converting: {filename.name}")
+        total = len(neutron_files)
+        for i, filename in enumerate(neutron_files, 1):
+            print(f"[{i}/{total}] {filename.stem}")
             convert_neutron(filename, neutron_dest,
                             source_format="ace", library=lib_name)
 
@@ -117,8 +118,9 @@ def main():
         photon_files = sorted(endf_dir.glob(details["glob"]))
         print(f"Found {len(photon_files)} photon ENDF files")
 
-        for photo_path in photon_files:
-            print(f"Converting: {photo_path.name}")
+        total_photon = len(photon_files)
+        for i, photo_path in enumerate(photon_files, 1):
+            print(f"[{i}/{total_photon}] {photo_path.stem}")
             convert_photon_endf(photo_path, photon_dest, library=lib_name)
 
     if args.cleanup:

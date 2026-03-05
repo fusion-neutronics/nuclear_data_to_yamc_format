@@ -96,6 +96,7 @@ def main():
         print(f"Found {len(endf_files)} neutron ENDF files")
 
         failed = []
+        total = len(endf_files)
         with Pool() as pool:
             results = []
             for f in endf_files:
@@ -106,11 +107,12 @@ def main():
                          library=lib_name),
                 )
                 results.append((f, r))
-            for f, r in results:
+            for i, (f, r) in enumerate(results, 1):
                 try:
                     r.get()
+                    print(f"[{i}/{total}] {f.stem}")
                 except Exception as e:
-                    print(f"FAILED: {f.name}: {e}")
+                    print(f"[{i}/{total}] FAILED: {f.name}: {e}")
                     failed.append(f.name)
 
         if failed:
@@ -120,8 +122,9 @@ def main():
     if "photon" in args.particles:
         photo_files, atom_files = find_photon_files(endf_dir)
         print(f"Found {len(photo_files)} photoatomic + {len(atom_files)} atomic relaxation files")
-        for photo_path, atom_path in zip(photo_files, atom_files):
-            print(f"Converting: {photo_path.name} + {atom_path.name}")
+        total_photon = len(photo_files)
+        for i, (photo_path, atom_path) in enumerate(zip(photo_files, atom_files), 1):
+            print(f"[{i}/{total_photon}] {photo_path.stem}")
             convert_photon(
                 photo_path, args.destination / "photon",
                 atom_path=atom_path, library=lib_name,
