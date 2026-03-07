@@ -2,8 +2,8 @@
 
 ## Python API
 
-The two main functions accept nuclear data source files and write Arrow
-output:
+The two main functions accept nuclear data source files and write
+simulation-ready Arrow output:
 
 ```python
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon
@@ -14,7 +14,7 @@ from nuclear_data_to_yamc_format import convert_neutron, convert_photon
 From an ACE file:
 
 ```python
-convert_neutron("92235.710nc", "output/")
+convert_neutron(input_path="92235.710nc", output_dir="output/")
 # creates output/U235.arrow/
 ```
 
@@ -22,11 +22,17 @@ From an ENDF file (NJOY is invoked automatically):
 
 ```python
 convert_neutron(
-    "n-092_U_235.endf",
-    "output/",
+    input_path="n-092_U_235.endf",
+    output_dir="output/",
     source_format="endf",
     temperatures=[293.6, 600.0, 900.0],
 )
+```
+
+With a library name (stored in version.json):
+
+```python
+convert_neutron(input_path="92235.710nc", output_dir="output/", library="endfb-8.0")
 ```
 
 ### Photon data
@@ -36,11 +42,25 @@ available, pass it with `atom_path`:
 
 ```python
 convert_photon(
-    "photoat-026_Fe_000.endf",
-    "output/",
+    input_path="photoat-026_Fe_000.endf",
+    output_dir="output/",
     atom_path="atom-026_Fe_000.endf",
+    library="endfb-8.0",
 )
-# creates output/Fe.photon.arrow/
+# creates output/Fe.arrow/
+```
+
+For ENDF files containing multiple elements (e.g. FENDL bundles):
+
+```python
+from nuclear_data_to_yamc_format import convert_photon_endf
+
+convert_photon_endf(
+    input_path="fendl-photoat.endf",
+    output_dir="output/",
+    library="fendl-3.2c",
+)
+# creates output/H.arrow/, output/He.arrow/, ...
 ```
 
 ## Command-line script
@@ -51,12 +71,15 @@ A convenience script is included for single-file conversion:
 # Neutron from ACE
 python scripts/convert_single_file.py neutron 92235.710nc -o output/
 
+# Neutron from ACE with library name
+python scripts/convert_single_file.py neutron 92235.710nc -o output/ --library endfb-8.0
+
 # Neutron from ENDF
 python scripts/convert_single_file.py neutron n-092_U_235.endf -f endf -o output/
 
 # Photon from ENDF with atomic relaxation
 python scripts/convert_single_file.py photon photoat-026_Fe_000.endf \
-    --atom atom-026_Fe_000.endf -o output/
+    --atom atom-026_Fe_000.endf -o output/ --library endfb-8.0
 ```
 
 ### Bulk conversion scripts
@@ -64,16 +87,34 @@ python scripts/convert_single_file.py photon photoat-026_Fe_000.endf \
 Two scripts are provided for converting entire libraries:
 
 `scripts/convert_endf.py`
-: Downloads and converts the ENDF/B-VIII.0 (or VII.1) library.  Mirrors
-  the `openmc_data` `generate_endf.py` pipeline.
+: Converts the ENDF/B-VIII.0 (or VII.1) library using NJOY for Doppler
+  broadening.  Automatically downloads ENDF files from NNDC if not found
+  locally (searches `./endfb-{release}-endf/` then
+  `~/nuclear_data/endfb-{release}-endf/`).  Processes neutrons in parallel.
+
+  ```bash
+  # Default: ENDF/B-VIII.0, 6 temperatures, output to ~/nuclear_data/endf-b8.0-arrow/
+  python scripts/convert_endf.py
+
+  # ENDF/B-VII.1 with custom temperatures
+  python scripts/convert_endf.py -r vii.1 --temperatures 293.6 600.0
+  ```
 
 `scripts/convert_fendl.py`
-: Downloads and converts the FENDL library.  Mirrors the `openmc_data`
-  `convert_fendl.py` pipeline.
+: Converts the FENDL library (ACE neutrons + ENDF photons).
+  Automatically downloads from IAEA if not found locally (searches
+  `./fendl-{release}-ace/` and `./fendl-{release}-endf/` then
+  `~/nuclear_data/fendl-{release}-{ace,endf}/`).
 
-Both scripts accept `--download` / `--no-download` and `--extract` /
-`--no-extract` flags so you can skip steps if the source files are already
-present.
+  ```bash
+  # Default: FENDL 3.2c, output to ./fendl-3.2c-arrow/
+  python scripts/convert_fendl.py
+
+  # FENDL 3.1d, custom output
+  python scripts/convert_fendl.py -r 3.1d -d /path/to/output
+  ```
+
+Both scripts accept `--cleanup` to remove source files after conversion.
 
 ## Reading Arrow files back
 
@@ -83,25 +124,39 @@ Python dicts:
 ```python
 from nuclear_data_to_yamc_format import read_neutron_from_arrow, read_photon_from_arrow
 
-data = read_neutron_from_arrow("output/U235.arrow")
-print(data["nuclide"]["name"])        # "U235"
-print(len(data["reactions"]))         # number of reactions
-print(data["reactions"][0]["mt"])      # first reaction MT number
+data = read_neutron_from_arrow(path="output/U235.arrow")
+print(data["version"])                   # format and converter metadata
+print(data["nuclide"]["name"])           # "U235"
+print(len(data["reactions"]))            # number of reactions (incl. synthesized)
+print(data["reactions"][0]["mt"])         # first reaction MT number
 
-photon = read_photon_from_arrow("output/Fe.photon.arrow")
-print(photon["element"]["Z"])         # 26
+# FastXSGrid data
+for fxs in data["fast_xs"]:
+    print(fxs["temperature"], len(fxs["log_grid_index"]))  # 8001 entries
+
+photon = read_photon_from_arrow(path="output/Fe.arrow")
+print(photon["element"]["Z"])            # 26
+print(len(photon["element"]["ln_energy"]))  # log-space energy grid
 ```
 
 ## Verification
 
-To confirm that the Arrow output is bit-identical to what OpenMC would
-produce, use the verification functions:
+To confirm that the Arrow output matches OpenMC data within tolerance,
+use the verification functions:
 
 ```python
 import openmc.data
 from nuclear_data_to_yamc_format import export_neutron_to_arrow, verify_neutron
 
 data = openmc.data.IncidentNeutron.from_ace("92235.710nc")
-export_neutron_to_arrow(data, "U235.arrow")
-assert verify_neutron(data, "U235.arrow")
+export_neutron_to_arrow(data=data, path="U235.arrow")
+assert verify_neutron(data=data, arrow_path="U235.arrow")
 ```
+
+Verification uses `np.allclose` with `rtol=1e-12` for floating-point
+comparisons and additionally checks:
+
+- Synthesized MTs (1, 3, 4, 27, 101) are present and marked redundant
+- FastXSGrid: `total == absorption + scattering + fission`
+- `log_grid_index` is monotonically non-decreasing with 8001 entries
+- `version.json` is present with valid `format_version`

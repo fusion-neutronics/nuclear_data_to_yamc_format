@@ -1,11 +1,17 @@
-"""Export an OpenMC IncidentPhoton object to an Arrow IPC directory."""
+"""Export an OpenMC IncidentPhoton object to a simulation-ready .arrow/ directory.
 
+Stores energy and cross sections in both linear and log space for fast
+interpolation.  Pre-computes Compton profile CDFs via trapezoidal integration.
+"""
+
+import json
 from copy import deepcopy
+from datetime import datetime, timezone
 from pathlib import Path
 
 import numpy as np
 import pyarrow as pa
-import pyarrow.feather as pf
+import pyarrow.ipc as ipc
 
 from openmc.data.function import Tabulated1D
 
@@ -27,25 +33,83 @@ _MT_KEY_MAP = {
 }
 
 
-def export_photon_to_arrow(data, path):
-    """Export an IncidentPhoton object to an Arrow IPC directory.
+def _safe_log(arr):
+    """Compute log, replacing zeros/negatives with a very small value."""
+    arr = np.asarray(arr, dtype=np.float64)
+    safe = np.where(arr > 0, arr, 1e-300)
+    return np.log(safe)
+
+
+def _compute_compton_cdfs(J_arr, pz):
+    """Compute CDFs from Compton profile J values via trapezoidal integration.
+
+    The CDF is left un-normalized (final value ~0.5) to match the convention
+    used by OpenMC's compton_doppler routine.
+
+    Parameters
+    ----------
+    J_arr : numpy.ndarray
+        Shape (n_shells, n_pz).
+    pz : numpy.ndarray
+        Electron momentum grid, shape (n_pz,).
+
+    Returns
+    -------
+    numpy.ndarray
+        CDF array of same shape, un-normalized.
+    """
+    n_shells, n_pz = J_arr.shape
+    cdf = np.zeros_like(J_arr)
+    for s in range(n_shells):
+        for i in range(1, n_pz):
+            dpz = pz[i] - pz[i - 1]
+            cdf[s, i] = cdf[s, i-1] + 0.5 * (J_arr[s, i-1] + J_arr[s, i]) * dpz
+    return cdf
+
+
+def _write_arrow_ipc(table, filepath):
+    """Write a PyArrow table as Arrow IPC (not Feather)."""
+    with pa.OSFile(str(filepath), 'wb') as f:
+        writer = ipc.new_file(f, table.schema)
+        writer.write_table(table)
+        writer.close()
+
+
+def export_photon_to_arrow(data, path, *, library=""):
+    """Export an IncidentPhoton object to a simulation-ready .arrow/ directory.
 
     Parameters
     ----------
     data : openmc.data.IncidentPhoton
         The incident photon data to export.
     path : str or Path
-        Directory path to write Arrow files to (e.g., "H.photon.arrow").
+        Directory path to write Arrow files to (e.g., "Fe.arrow").
+    library : str, optional
+        Library name (e.g., "endfb-8.0", "fendl-3.2c").
     """
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
 
     Z = data.atomic_number
 
+    # ------------------------------------------------------------------
+    # 0. version.json
+    # ------------------------------------------------------------------
+    from . import __version__
+    version_info = {
+        "format_version": 1,
+        "library": library,
+        "converter_version": __version__,
+        "created_utc": datetime.now(timezone.utc).isoformat(),
+    }
+    (path / "version.json").write_text(json.dumps(version_info, indent=2))
+
     # Build union energy grid (same as export_to_hdf5)
     union_grid = np.array([])
     for rx in data:
         union_grid = np.union1d(union_grid, rx.xs.x)
+
+    ln_energy = _safe_log(union_grid)
 
     # ------------------------------------------------------------------
     # Collect cross sections and form factors from reactions
@@ -54,16 +118,13 @@ def export_photon_to_arrow(data, path):
     coherent_rx = None
     incoherent_rx = None
     subshell_rows = []
-    designators = []
 
-    # Map from photon.py _REACTION_NAME
     from openmc.data.photon import _REACTION_NAME
 
     for mt, rx in data.reactions.items():
         name, key = _REACTION_NAME[mt]
 
         if mt in (502, 504, 515, 517, 522, 525):
-            # Main cross section on union grid
             if mt >= 534 and mt <= 572:
                 pass  # handled below
             else:
@@ -75,14 +136,11 @@ def export_photon_to_arrow(data, path):
                 incoherent_rx = rx
 
         elif mt >= 534 and mt <= 572:
-            designators.append(key)
-
-            # Determine threshold
             threshold = rx.xs.x[0]
             idx = int(np.searchsorted(union_grid, threshold, side='right') - 1)
             photoionization = np.asarray(rx.xs(union_grid[idx:]), dtype=np.float64)
+            ln_photoionization = _safe_log(photoionization)
 
-            # Subshell atomic relaxation data
             binding_energy = 0.0
             num_electrons = 0.0
             transitions_data = None
@@ -108,21 +166,22 @@ def export_photon_to_arrow(data, path):
                 "binding_energy": binding_energy,
                 "num_electrons": num_electrons,
                 "xs": photoionization.tolist(),
+                "ln_xs": ln_photoionization.tolist(),
                 "threshold_idx": idx,
                 "transitions_data": transitions_data,
                 "transitions_shape": transitions_shape,
             })
 
     # ------------------------------------------------------------------
-    # element.feather
+    # element.arrow
     # ------------------------------------------------------------------
     element_row = {
         "name": data.name,
         "Z": int(Z),
         "energy": union_grid.tolist(),
+        "ln_energy": ln_energy.tolist(),
     }
 
-    # Main cross sections
     _xs_key_map = {
         "coherent": "coherent_xs",
         "incoherent": "incoherent_xs",
@@ -131,16 +190,25 @@ def export_photon_to_arrow(data, path):
         "pair_production_electron": "pair_production_electron_xs",
         "heating": "heating_xs",
     }
+    _ln_xs_key_map = {
+        "coherent": "ln_coherent_xs",
+        "incoherent": "ln_incoherent_xs",
+        "photoelectric": "ln_photoelectric_xs",
+    }
     for key, col_name in _xs_key_map.items():
         if key in xs_data:
             element_row[col_name] = xs_data[key].tolist()
+        else:
+            element_row[col_name] = []
+    for key, col_name in _ln_xs_key_map.items():
+        if key in xs_data:
+            element_row[col_name] = _safe_log(xs_data[key]).tolist()
         else:
             element_row[col_name] = []
 
     # Form factors for coherent scattering
     if coherent_rx is not None and coherent_rx.scattering_factor is not None:
         ff = coherent_rx.scattering_factor
-        # Integrated form factor (same computation as photon.py to_hdf5)
         ff_copy = deepcopy(ff)
         ff_copy.x = ff_copy.x * ff_copy.x
         ff_copy.y = ff_copy.y * ff_copy.y / Z**2
@@ -173,7 +241,6 @@ def export_photon_to_arrow(data, path):
         element_row["coherent_anomalous_imag_x"] = []
         element_row["coherent_anomalous_imag_y"] = []
 
-    # Incoherent scattering factor
     if incoherent_rx is not None and incoherent_rx.scattering_factor is not None:
         element_row["incoherent_ff_x"] = np.asarray(
             incoherent_rx.scattering_factor.x, dtype=np.float64).tolist()
@@ -187,10 +254,10 @@ def export_photon_to_arrow(data, path):
         {col: [element_row[col]] for col in ELEMENT_SCHEMA.names},
         schema=ELEMENT_SCHEMA,
     )
-    pf.write_feather(element_table, path / "element.feather")
+    _write_arrow_ipc(element_table, path / "element.arrow")
 
     # ------------------------------------------------------------------
-    # subshells.feather
+    # subshells.arrow
     # ------------------------------------------------------------------
     if subshell_rows:
         subshells_table = pa.table(
@@ -198,29 +265,36 @@ def export_photon_to_arrow(data, path):
              for col in SUBSHELLS_SCHEMA.names},
             schema=SUBSHELLS_SCHEMA,
         )
-        pf.write_feather(subshells_table, path / "subshells.feather")
+        _write_arrow_ipc(subshells_table, path / "subshells.arrow")
 
     # ------------------------------------------------------------------
-    # compton.feather
+    # compton.arrow
     # ------------------------------------------------------------------
     if data.compton_profiles:
         profile = data.compton_profiles
         J_arr = np.array([Jk.y for Jk in profile['J']], dtype=np.float64)
+        pz = np.asarray(profile['J'][0].x, dtype=np.float64)
+
+        # Pre-compute CDFs (un-normalized, matching OpenMC convention)
+        J_cdf = _compute_compton_cdfs(J_arr, pz)
+
         compton_row = {
             "num_electrons": np.asarray(profile['num_electrons'], dtype=np.float64).tolist(),
             "binding_energy": np.asarray(profile['binding_energy'], dtype=np.float64).tolist(),
             "pz": np.asarray(profile['J'][0].x, dtype=np.float64).tolist(),
             "J_data": J_arr.ravel(order='C').tolist(),
             "J_shape": list(J_arr.shape),
+            "J_cdf_data": J_cdf.ravel(order='C').tolist(),
+            "J_cdf_shape": list(J_cdf.shape),
         }
         compton_table = pa.table(
             {col: [compton_row[col]] for col in COMPTON_SCHEMA.names},
             schema=COMPTON_SCHEMA,
         )
-        pf.write_feather(compton_table, path / "compton.feather")
+        _write_arrow_ipc(compton_table, path / "compton.arrow")
 
     # ------------------------------------------------------------------
-    # bremsstrahlung.feather
+    # bremsstrahlung.arrow
     # ------------------------------------------------------------------
     if data.bremsstrahlung:
         brem = data.bremsstrahlung
@@ -238,4 +312,4 @@ def export_photon_to_arrow(data, path):
             {col: [brem_row[col]] for col in BREMSSTRAHLUNG_SCHEMA.names},
             schema=BREMSSTRAHLUNG_SCHEMA,
         )
-        pf.write_feather(brem_table, path / "bremsstrahlung.feather")
+        _write_arrow_ipc(brem_table, path / "bremsstrahlung.arrow")

@@ -1,4 +1,4 @@
-"""Arrow schema definitions for nuclear data tables."""
+"""Arrow schema definitions for simulation-ready nuclear data tables."""
 
 import pyarrow as pa
 
@@ -19,7 +19,7 @@ NUCLIDE_SCHEMA = pa.schema(
         pa.field("energy_temperatures", pa.list_(pa.utf8())),
         pa.field("energy_values", pa.list_(pa.list_(pa.float64()))),
     ],
-    metadata={b"filetype": b"data_neutron", b"version": b"3.0"},
+    metadata={b"filetype": b"data_neutron", b"version": b"4.0"},
 )
 
 REACTIONS_SCHEMA = pa.schema(
@@ -140,6 +140,31 @@ TOTAL_NU_SCHEMA = pa.schema(
 )
 
 # ---------------------------------------------------------------------------
+# FastXSGrid schema — one row per temperature
+# ---------------------------------------------------------------------------
+
+FAST_XS_SCHEMA = pa.schema(
+    [
+        pa.field("temperature", pa.utf8()),
+        pa.field("log_e_min", pa.float64()),
+        pa.field("inv_log_delta", pa.float64()),
+        pa.field("log_grid_index", pa.list_(pa.int32())),
+        pa.field("xs", pa.list_(pa.float64())),
+        pa.field("xs_shape", pa.list_(pa.int32())),
+        pa.field("energy", pa.list_(pa.float64())),
+        pa.field("scatter_mt_numbers", pa.list_(pa.int32())),
+        pa.field("scatter_mt_xs", pa.list_(pa.float64())),
+        pa.field("scatter_mt_shape", pa.list_(pa.int32())),
+        pa.field("fission_mt_numbers", pa.list_(pa.int32())),
+        pa.field("fission_mt_xs", pa.list_(pa.float64())),
+        pa.field("fission_mt_shape", pa.list_(pa.int32())),
+        pa.field("has_partial_fission", pa.bool_()),
+        pa.field("xs_ngamma", pa.list_(pa.float64())),
+        pa.field("photon_prod", pa.list_(pa.float64())),
+    ]
+)
+
+# ---------------------------------------------------------------------------
 # Photon schemas
 # ---------------------------------------------------------------------------
 
@@ -148,9 +173,13 @@ ELEMENT_SCHEMA = pa.schema(
         pa.field("name", pa.utf8()),
         pa.field("Z", pa.int32()),
         pa.field("energy", pa.list_(pa.float64())),
+        pa.field("ln_energy", pa.list_(pa.float64())),
         pa.field("coherent_xs", pa.list_(pa.float64())),
+        pa.field("ln_coherent_xs", pa.list_(pa.float64())),
         pa.field("incoherent_xs", pa.list_(pa.float64())),
+        pa.field("ln_incoherent_xs", pa.list_(pa.float64())),
         pa.field("photoelectric_xs", pa.list_(pa.float64())),
+        pa.field("ln_photoelectric_xs", pa.list_(pa.float64())),
         pa.field("pair_production_nuclear_xs", pa.list_(pa.float64())),
         pa.field("pair_production_electron_xs", pa.list_(pa.float64())),
         pa.field("heating_xs", pa.list_(pa.float64())),
@@ -165,7 +194,7 @@ ELEMENT_SCHEMA = pa.schema(
         pa.field("incoherent_ff_x", pa.list_(pa.float64())),
         pa.field("incoherent_ff_y", pa.list_(pa.float64())),
     ],
-    metadata={b"filetype": b"data_photon", b"version": b"3.0"},
+    metadata={b"filetype": b"data_photon", b"version": b"4.0"},
 )
 
 SUBSHELLS_SCHEMA = pa.schema(
@@ -174,6 +203,7 @@ SUBSHELLS_SCHEMA = pa.schema(
         pa.field("binding_energy", pa.float64()),
         pa.field("num_electrons", pa.float64()),
         pa.field("xs", pa.list_(pa.float64())),
+        pa.field("ln_xs", pa.list_(pa.float64())),
         pa.field("threshold_idx", pa.int32()),
         pa.field("transitions_data", pa.list_(pa.float64())),
         pa.field("transitions_shape", pa.list_(pa.int32())),
@@ -187,6 +217,8 @@ COMPTON_SCHEMA = pa.schema(
         pa.field("pz", pa.list_(pa.float64())),
         pa.field("J_data", pa.list_(pa.float64())),
         pa.field("J_shape", pa.list_(pa.int32())),
+        pa.field("J_cdf_data", pa.list_(pa.float64())),
+        pa.field("J_cdf_shape", pa.list_(pa.int32())),
     ]
 )
 

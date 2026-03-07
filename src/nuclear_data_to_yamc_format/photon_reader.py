@@ -1,9 +1,17 @@
-"""Read Arrow IPC photon data back into Python dicts for verification."""
+"""Read a simulation-ready .arrow/ photon directory back into Python dicts."""
 
+import json
 from pathlib import Path
 
-import numpy as np
-import pyarrow.feather as pf
+import pyarrow as pa
+import pyarrow.ipc as ipc
+
+
+def _read_arrow_ipc(filepath):
+    """Read an Arrow IPC file into a PyArrow table."""
+    with pa.OSFile(str(filepath), 'rb') as f:
+        reader = ipc.open_file(f)
+        return reader.read_all()
 
 
 def _to_list(val):
@@ -24,30 +32,44 @@ def _read_single_row(table):
 
 
 def read_photon_from_arrow(path):
-    """Read an Arrow photon directory into a dict of dicts/lists.
+    """Read a .arrow/ photon directory into a dict of dicts/lists.
 
     Parameters
     ----------
     path : str or Path
-        Path to the Arrow directory (e.g., "H.photon.arrow").
+        Path to the Arrow directory (e.g., "Fe.arrow").
 
     Returns
     -------
     dict
-        Dictionary with keys: "element", "subshells", "compton" (optional),
-        "bremsstrahlung" (optional).
+        Dictionary with keys: "version", "element", "subshells",
+        "compton" (optional), "bremsstrahlung" (optional).
     """
     path = Path(path)
     result = {}
 
+    # version.json
+    version_path = path / "version.json"
+    if version_path.exists():
+        result["version"] = json.loads(version_path.read_text())
+        fmt_ver = result["version"].get("format_version")
+        if fmt_ver is not None and fmt_ver > 1:
+            raise ValueError(
+                f"Unsupported format_version {fmt_ver} in {version_path}. "
+                f"This reader supports format_version <= 1."
+            )
+
     # element
-    element_table = pf.read_table(path / "element.feather")
-    result["element"] = _read_single_row(element_table)
-    result["element"]["_metadata"] = element_table.schema.metadata
+    element_file = path / "element.arrow"
+    if element_file.exists():
+        element_table = _read_arrow_ipc(element_file)
+        result["element"] = _read_single_row(element_table)
+        result["element"]["_metadata"] = element_table.schema.metadata
 
     # subshells
-    if (path / "subshells.feather").exists():
-        subshells_table = pf.read_table(path / "subshells.feather")
+    subshells_file = path / "subshells.arrow"
+    if subshells_file.exists():
+        subshells_table = _read_arrow_ipc(subshells_file)
         result["subshells"] = []
         for i in range(len(subshells_table)):
             row = {}
@@ -58,13 +80,15 @@ def read_photon_from_arrow(path):
         result["subshells"] = []
 
     # compton (optional)
-    if (path / "compton.feather").exists():
-        compton_table = pf.read_table(path / "compton.feather")
+    compton_file = path / "compton.arrow"
+    if compton_file.exists():
+        compton_table = _read_arrow_ipc(compton_file)
         result["compton"] = _read_single_row(compton_table)
 
     # bremsstrahlung (optional)
-    if (path / "bremsstrahlung.feather").exists():
-        brem_table = pf.read_table(path / "bremsstrahlung.feather")
+    brem_file = path / "bremsstrahlung.arrow"
+    if brem_file.exists():
+        brem_table = _read_arrow_ipc(brem_file)
         result["bremsstrahlung"] = _read_single_row(brem_table)
 
     return result
