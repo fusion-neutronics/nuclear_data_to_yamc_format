@@ -40,28 +40,30 @@ def _safe_log(arr):
     return np.log(safe)
 
 
-def _compute_compton_cdfs(J_arr):
+def _compute_compton_cdfs(J_arr, pz):
     """Compute CDFs from Compton profile J values via trapezoidal integration.
+
+    The CDF is left un-normalized (final value ~0.5) to match the convention
+    used by OpenMC's compton_doppler routine.
 
     Parameters
     ----------
     J_arr : numpy.ndarray
         Shape (n_shells, n_pz).
+    pz : numpy.ndarray
+        Electron momentum grid, shape (n_pz,).
 
     Returns
     -------
     numpy.ndarray
-        CDF array of same shape, normalized so last value is 1.0.
+        CDF array of same shape, un-normalized.
     """
     n_shells, n_pz = J_arr.shape
     cdf = np.zeros_like(J_arr)
     for s in range(n_shells):
-        # Trapezoidal integration (cumulative)
         for i in range(1, n_pz):
-            cdf[s, i] = cdf[s, i-1] + 0.5 * (J_arr[s, i-1] + J_arr[s, i])
-        # Normalize
-        if cdf[s, -1] > 0:
-            cdf[s, :] /= cdf[s, -1]
+            dpz = pz[i] - pz[i - 1]
+            cdf[s, i] = cdf[s, i-1] + 0.5 * (J_arr[s, i-1] + J_arr[s, i]) * dpz
     return cdf
 
 
@@ -271,9 +273,10 @@ def export_photon_to_arrow(data, path, *, library=""):
     if data.compton_profiles:
         profile = data.compton_profiles
         J_arr = np.array([Jk.y for Jk in profile['J']], dtype=np.float64)
+        pz = np.asarray(profile['J'][0].x, dtype=np.float64)
 
-        # Pre-compute CDFs
-        J_cdf = _compute_compton_cdfs(J_arr)
+        # Pre-compute CDFs (un-normalized, matching OpenMC convention)
+        J_cdf = _compute_compton_cdfs(J_arr, pz)
 
         compton_row = {
             "num_electrons": np.asarray(profile['num_electrons'], dtype=np.float64).tolist(),
