@@ -169,7 +169,7 @@ TENDL_RELEASES = {
         "dir": "tendl-2025-endf",
         "dest": "tendl-2025-arrow",
         "neutron": {
-            "base_url": "https://tendl.web.psi.ch/tendl_2025/tar_files/",
+            "base_url": "https://tendl.imperial.ac.uk/tendl_2025/tar_files/",
             "files": ["TENDL-n.tgz"],
             "glob": "n-*.tendl",
         },
@@ -179,7 +179,7 @@ TENDL_RELEASES = {
         "dir": "tendl-2023-endf",
         "dest": "tendl-2023-arrow",
         "neutron": {
-            "base_url": "https://tendl.web.psi.ch/tendl_2023/tar_files/",
+            "base_url": "https://tendl.imperial.ac.uk/tendl_2023/tar_files/",
             "files": ["TENDL-n.2024new.tgz"],
             "glob": "n-*.tendl",
         },
