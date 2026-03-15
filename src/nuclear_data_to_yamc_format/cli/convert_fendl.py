@@ -12,6 +12,7 @@ import argparse
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon_endf
+from nuclear_data_to_yamc_format.cli import nuclide_filter
 from nuclear_data_to_yamc_format.download import (
     FENDL_RELEASES, download_and_extract, extract_archive,
 )
@@ -79,6 +80,8 @@ def main():
     parser.add_argument("-p", "--particles", choices=["neutron", "photon"],
                         nargs="+", default=["neutron", "photon"],
                         help="Incident particles to include")
+    parser.add_argument("--nuclides", nargs="+", metavar="NUCLIDE",
+                        help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
     args = parser.parse_args()
@@ -101,6 +104,7 @@ def main():
             f for f in neutron_files
             if not f.name.endswith("_") and not f.name.endswith(".xsd")
         ]
+        neutron_files = nuclide_filter(neutron_files, args.nuclides)
         print(f"Found {len(neutron_files)} neutron ACE files")
 
         total = len(neutron_files)
@@ -116,6 +120,7 @@ def main():
 
         details = release["photon"]["endf"]
         photon_files = sorted(endf_dir.glob(details["glob"]))
+        photon_files = nuclide_filter(photon_files, args.nuclides)
         print(f"Found {len(photon_files)} photon ENDF files")
 
         total_photon = len(photon_files)

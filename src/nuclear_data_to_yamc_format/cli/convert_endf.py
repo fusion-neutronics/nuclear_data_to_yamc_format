@@ -16,6 +16,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon
+from nuclear_data_to_yamc_format.cli import nuclide_filter
 from nuclear_data_to_yamc_format.download import (
     ENDF_RELEASES, download_and_extract, find_photon_files,
 )
@@ -70,6 +71,8 @@ def main():
     parser.add_argument("--temperatures", type=float,
                         default=[250.0, 293.6, 600.0, 900.0, 1200.0, 2500.0],
                         help="Temperatures in Kelvin", nargs="+")
+    parser.add_argument("--nuclides", nargs="+", metavar="NUCLIDE",
+                        help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
     args = parser.parse_args()
@@ -93,6 +96,7 @@ def main():
         endf_files = sorted(neutron_dir.rglob("n-*.endf"))
         # Skip free neutron (no bound cross sections)
         endf_files = [f for f in endf_files if f.name != "n-000_n_001.endf"]
+        endf_files = nuclide_filter(endf_files, args.nuclides)
         print(f"Found {len(endf_files)} neutron ENDF files")
 
         failed = []
@@ -121,6 +125,12 @@ def main():
     # Photons — sequential (fast, no NJOY)
     if "photon" in args.particles:
         photo_files, atom_files = find_photon_files(endf_dir)
+        if args.nuclides:
+            # For photon files, filter both lists in lockstep
+            indices = [i for i, f in enumerate(photo_files)
+                       if f in nuclide_filter([f], args.nuclides)]
+            photo_files = [photo_files[i] for i in indices]
+            atom_files = [atom_files[i] for i in indices]
         print(f"Found {len(photo_files)} photoatomic + {len(atom_files)} atomic relaxation files")
         total_photon = len(photo_files)
         for i, (photo_path, atom_path) in enumerate(zip(photo_files, atom_files), 1):

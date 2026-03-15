@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "nuclear_data_to_yamc_format"
-version = "0.1.0"
+dynamic = ["version"]
 description = "Export OpenMC nuclear data objects to Apache Arrow IPC format"
 requires-python = ">=3.9"
 dependencies = [
@@ -30,3 +30,5 @@ convert-tendl = "nuclear_data_to_yamc_format.cli.convert_tendl:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools_scm]
