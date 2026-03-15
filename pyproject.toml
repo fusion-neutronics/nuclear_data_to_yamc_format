@@ -22,5 +22,11 @@ docs = [
     "myst-parser",
 ]
 
+[project.scripts]
+convert-endf = "nuclear_data_to_yamc_format.cli.convert_endf:main"
+convert-fendl = "nuclear_data_to_yamc_format.cli.convert_fendl:main"
+convert-single-file = "nuclear_data_to_yamc_format.cli.convert_single_file:main"
+convert-tendl = "nuclear_data_to_yamc_format.cli.convert_tendl:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]

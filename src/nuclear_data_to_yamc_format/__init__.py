@@ -10,7 +10,7 @@ from .photon_reader import read_photon_from_arrow
 from .verify import verify_neutron, verify_photon
 from .download import (
     download_file, extract_archive, download_and_extract, find_photon_files,
-    ENDF_RELEASES, FENDL_RELEASES,
+    ENDF_RELEASES, FENDL_RELEASES, TENDL_RELEASES,
 )
 
 try:
