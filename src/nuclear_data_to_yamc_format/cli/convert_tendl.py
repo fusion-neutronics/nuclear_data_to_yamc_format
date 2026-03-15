@@ -18,6 +18,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron
+from nuclear_data_to_yamc_format.cli import nuclide_filter
 from nuclear_data_to_yamc_format.download import (
     TENDL_RELEASES, download_and_extract,
 )
@@ -66,6 +67,8 @@ def main():
     parser.add_argument("--temperatures", type=float,
                         default=[250.0, 293.6, 600.0, 900.0, 1200.0, 2500.0],
                         help="Temperatures in Kelvin", nargs="+")
+    parser.add_argument("--nuclides", nargs="+", metavar="NUCLIDE",
+                        help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
     args = parser.parse_args()
@@ -85,6 +88,7 @@ def main():
 
     neutron_glob = info["neutron"]["glob"]
     endf_files = sorted(endf_dir.glob(neutron_glob))
+    endf_files = nuclide_filter(endf_files, args.nuclides)
     print(f"Found {len(endf_files)} neutron ENDF files")
 
     failed = []
