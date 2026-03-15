@@ -35,7 +35,7 @@ def find_or_download_tendl(release, info):
         Path.home() / "nuclear_data" / dirname,
     ]
     for p in candidates:
-        if p.is_dir() and any(p.glob("n-*.tendl")):
+        if p.is_dir() and any(p.rglob("n-*.tendl")):
             print(f"Using existing TENDL source: {p}")
             return p
 
@@ -87,7 +87,7 @@ def main():
     print(f"Temperatures: {args.temperatures}")
 
     neutron_glob = info["neutron"]["glob"]
-    endf_files = sorted(endf_dir.glob(neutron_glob))
+    endf_files = sorted(endf_dir.rglob(neutron_glob))
     endf_files = nuclide_filter(endf_files, args.nuclides)
     print(f"Found {len(endf_files)} neutron ENDF files")
 

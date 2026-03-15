@@ -40,8 +40,9 @@ def nuclide_filter(files, nuclides):
                 pass
 
         # Fallback: check if any target nuclide appears in the filename
+        # Try both unpadded (Fe56) and zero-padded (Fe056) mass numbers
         for elem, mass in targets:
-            if f"{elem}{mass}" in stem:
+            if f"{elem}{mass}" in stem or f"{elem}{mass:03d}" in stem:
                 kept.append(f)
                 matched.add((elem, mass))
                 break
