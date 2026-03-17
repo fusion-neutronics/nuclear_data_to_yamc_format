@@ -18,7 +18,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron
-from nuclear_data_to_yamc_format.cli import nuclide_filter
+from nuclear_data_to_yamc_format.cli import nuclide_filter, write_index
 from nuclear_data_to_yamc_format.download import (
     TENDL_RELEASES, download_and_extract,
 )
@@ -113,6 +113,8 @@ def main():
 
     if failed:
         print(f"\n{len(failed)} files failed: {failed}")
+
+    write_index(args.destination)
 
     if args.cleanup:
         from shutil import rmtree

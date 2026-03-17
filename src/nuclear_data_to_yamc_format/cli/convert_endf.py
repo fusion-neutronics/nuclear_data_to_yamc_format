@@ -16,7 +16,7 @@ from multiprocessing import Pool
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon
-from nuclear_data_to_yamc_format.cli import nuclide_filter
+from nuclear_data_to_yamc_format.cli import nuclide_filter, write_index
 from nuclear_data_to_yamc_format.download import (
     ENDF_RELEASES, download_and_extract, find_photon_files,
 )
@@ -139,6 +139,8 @@ def main():
                 photo_path, args.destination / "photon",
                 atom_path=atom_path, library=lib_name,
             )
+
+    write_index(args.destination)
 
     if args.cleanup:
         from shutil import rmtree

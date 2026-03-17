@@ -1,5 +1,29 @@
 import re
 import sys
+from pathlib import Path
+
+
+def write_index(library_dir):
+    """Write a comma-delimited index of all converted nuclides and elements.
+
+    Scans ``neutron/`` and ``photon/`` subdirectories for ``*.arrow``
+    directories and writes their names to ``index.txt`` in *library_dir*.
+    """
+    names = set()
+    library_dir = Path(library_dir)
+
+    for subdir in ("neutron", "photon"):
+        particle_dir = library_dir / subdir
+        if not particle_dir.is_dir():
+            continue
+        for d in particle_dir.iterdir():
+            if d.is_dir() and d.suffix == ".arrow" and ".photon" not in d.stem:
+                names.add(d.stem)
+
+    if names:
+        index_path = library_dir / "index.txt"
+        index_path.write_text(",".join(sorted(names)) + "\n")
+        print(f"Wrote index ({len(names)} entries) to {index_path}")
 
 
 def parse_nuclide(name):
