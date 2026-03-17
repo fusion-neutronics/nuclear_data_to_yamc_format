@@ -12,7 +12,7 @@ import argparse
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon_endf
-from nuclear_data_to_yamc_format.cli import nuclide_filter
+from nuclear_data_to_yamc_format.cli import nuclide_filter, write_index
 from nuclear_data_to_yamc_format.download import (
     FENDL_RELEASES, download_and_extract, extract_archive,
 )
@@ -127,6 +127,8 @@ def main():
         for i, photo_path in enumerate(photon_files, 1):
             print(f"[{i}/{total_photon}] {photo_path.stem}")
             convert_photon_endf(photo_path, photon_dest, library=lib_name)
+
+    write_index(args.destination)
 
     if args.cleanup:
         from shutil import rmtree
