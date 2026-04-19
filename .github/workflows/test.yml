@@ -22,7 +22,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Install OpenMC Python API
-        run: pip install openmc
+        run: pip install --extra-index-url https://shimwell.github.io/wheels openmc
 
       - name: Install package with test dependencies
         run: pip install -e ".[dev]"
