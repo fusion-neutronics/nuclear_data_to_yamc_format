@@ -233,3 +233,59 @@ BREMSSTRAHLUNG_SCHEMA = pa.schema(
         pa.field("dcs_shape", pa.list_(pa.int32())),
     ]
 )
+
+# ---------------------------------------------------------------------------
+# Depletion chain schemas
+# ---------------------------------------------------------------------------
+
+CHAIN_NUCLIDES_SCHEMA = pa.schema(
+    [
+        pa.field("name", pa.utf8(), nullable=False),
+        pa.field("half_life", pa.float64(), nullable=True),
+        pa.field("decay_energy", pa.float64(), nullable=False),
+        pa.field("n_decay_modes", pa.int32(), nullable=False),
+        pa.field("n_reactions", pa.int32(), nullable=False),
+        pa.field("n_sources", pa.int32(), nullable=False),
+        pa.field("has_fission_yields", pa.bool_(), nullable=False),
+        pa.field("fission_yield_parent", pa.utf8(), nullable=True),
+    ],
+    metadata={b"filetype": b"depletion_chain", b"version": b"1.0"},
+)
+
+CHAIN_DECAYS_SCHEMA = pa.schema(
+    [
+        pa.field("nuclide", pa.utf8(), nullable=False),
+        pa.field("type", pa.utf8(), nullable=False),
+        pa.field("target", pa.utf8(), nullable=True),
+        pa.field("branching_ratio", pa.float64(), nullable=False),
+    ]
+)
+
+CHAIN_REACTIONS_SCHEMA = pa.schema(
+    [
+        pa.field("nuclide", pa.utf8(), nullable=False),
+        pa.field("type", pa.utf8(), nullable=False),
+        pa.field("target", pa.utf8(), nullable=True),
+        pa.field("Q", pa.float64(), nullable=False),
+        pa.field("branching_ratio", pa.float64(), nullable=False),
+    ]
+)
+
+CHAIN_SOURCES_SCHEMA = pa.schema(
+    [
+        pa.field("nuclide", pa.utf8(), nullable=False),
+        pa.field("particle", pa.utf8(), nullable=False),
+        pa.field("type", pa.utf8(), nullable=False),
+        pa.field("energies", pa.list_(pa.float64()), nullable=False),
+        pa.field("intensities", pa.list_(pa.float64()), nullable=False),
+    ]
+)
+
+CHAIN_FISSION_YIELDS_SCHEMA = pa.schema(
+    [
+        pa.field("nuclide", pa.utf8(), nullable=False),
+        pa.field("energy", pa.float64(), nullable=False),
+        pa.field("products", pa.list_(pa.utf8()), nullable=False),
+        pa.field("yields", pa.list_(pa.float64()), nullable=False),
+    ]
+)
