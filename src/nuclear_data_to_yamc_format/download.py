@@ -94,28 +94,19 @@ def download_and_extract(urls, dest_dir, download_dir, *, verify_ssl=True):
 
 
 def find_photon_files(endf_dir):
-    """Find photoatomic and atomic relaxation ENDF files.
+    """Find photoatomic and atomic relaxation ENDF files anywhere under *endf_dir*.
 
-    Supports two directory layouts:
-      1. Separate dirs: ``endf_dir/photoat/*.endf`` + ``endf_dir/atom/*.endf``
-      2. Single dir:    ``endf_dir/photon/photoat-*.endf`` + ``photon/atom-*.endf``
+    Matches files named ``photoat-*.endf`` and ``atom-*.endf`` regardless of
+    the intermediate directory layout (e.g. ``photoat/``, ``photon/``,
+    ``photoat-version.VIII.1/``).
 
     Returns ``(photo_files, atom_files)`` as sorted lists of Paths.
     """
     endf_dir = Path(endf_dir)
-    photoat_dir = endf_dir / "photoat"
-    atom_dir = endf_dir / "atom"
-    photon_dir = endf_dir / "photon"
-
-    if photoat_dir.is_dir():
-        return sorted(photoat_dir.rglob("*.endf")), sorted(atom_dir.rglob("*.endf"))
-    elif photon_dir.is_dir():
-        return (
-            sorted(photon_dir.glob("photoat-*.endf")),
-            sorted(photon_dir.glob("atom-*.endf")),
-        )
-    else:
-        return [], []
+    return (
+        sorted(endf_dir.rglob("photoat-*.endf")),
+        sorted(endf_dir.rglob("atom-*.endf")),
+    )
 
 
 # =============================================================================

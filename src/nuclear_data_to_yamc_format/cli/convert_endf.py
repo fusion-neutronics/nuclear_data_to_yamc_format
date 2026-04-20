@@ -92,8 +92,7 @@ def main():
 
     # Neutrons — parallel via NJOY
     if "neutron" in args.particles:
-        neutron_dir = endf_dir / "neutron"
-        endf_files = sorted(neutron_dir.rglob("n-*.endf"))
+        endf_files = sorted(endf_dir.rglob("n-*.endf"))
         # Skip free neutron (no bound cross sections)
         endf_files = [f for f in endf_files if f.name != "n-000_n_001.endf"]
         endf_files = nuclide_filter(endf_files, args.nuclides)
