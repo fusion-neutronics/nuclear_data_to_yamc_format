@@ -64,7 +64,7 @@ def main():
     parser.add_argument("-d", "--destination", type=Path,
                         help="Directory to create new library in")
     parser.add_argument("-r", "--release", choices=list(ENDF_RELEASES.keys()),
-                        default="viii.0", help="ENDF/B release version")
+                        default="viii.1", help="ENDF/B release version")
     parser.add_argument("-p", "--particles", choices=["neutron", "photon"],
                         nargs="+", default=["neutron", "photon"],
                         help="Incident particles to include")

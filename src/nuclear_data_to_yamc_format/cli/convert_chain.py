@@ -4,12 +4,12 @@
 
 Examples:
     # Build from an existing OpenMC chain XML
-    python scripts/convert_chain.py --xml chain_endf_b8.0.xml \\
+    convert-chain --xml chain_endf_b8.0.xml \\
         -o chain_endf_b8.0.chain.arrow --library endfb-8.0
 
     # Build from ENDF source files (all reactions included, matching
     # openmc_data's generate_endf_chain.py)
-    python scripts/convert_chain.py \\
+    convert-chain \\
         --decay-dir decay/ --fpy-dir nfy/ --neutron-dir neutrons/ \\
         -o chain_endf_b8.0.chain.arrow --library endfb-8.0
 """
@@ -24,25 +24,24 @@ def _collect(dir_path):
     return sorted(Path(dir_path).glob("*.endf"))
 
 
-parser = argparse.ArgumentParser(
-    description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
-)
-parser.add_argument("--xml", type=Path, default=None,
-                    help="Existing OpenMC chain XML to convert")
-parser.add_argument("--decay-dir", type=Path, default=None,
-                    help="Directory of decay ENDF files")
-parser.add_argument("--fpy-dir", type=Path, default=None,
-                    help="Directory of neutron fission product yield ENDF files")
-parser.add_argument("--neutron-dir", type=Path, default=None,
-                    help="Directory of neutron ENDF files")
-parser.add_argument("-o", "--output", type=Path, required=True,
-                    help="Output .chain.arrow/ directory")
-parser.add_argument("--library", type=str, default="",
-                    help="Library name (e.g., endfb-8.0)")
-args = parser.parse_args()
-
-
 def main():
+    parser = argparse.ArgumentParser(
+        description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("--xml", type=Path, default=None,
+                        help="Existing OpenMC chain XML to convert")
+    parser.add_argument("--decay-dir", type=Path, default=None,
+                        help="Directory of decay ENDF files")
+    parser.add_argument("--fpy-dir", type=Path, default=None,
+                        help="Directory of neutron fission product yield ENDF files")
+    parser.add_argument("--neutron-dir", type=Path, default=None,
+                        help="Directory of neutron ENDF files")
+    parser.add_argument("-o", "--output", type=Path, required=True,
+                        help="Output .chain.arrow/ directory")
+    parser.add_argument("--library", type=str, default="",
+                        help="Library name (e.g., endfb-8.0)")
+    args = parser.parse_args()
+
     if args.xml is not None:
         path = convert_chain(args.output, xml_path=args.xml, library=args.library)
     else:
