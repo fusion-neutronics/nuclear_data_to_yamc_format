@@ -21,7 +21,7 @@ from nuclear_data_to_yamc_format import convert_chain
 
 
 def _collect(dir_path):
-    return sorted(Path(dir_path).glob("*.endf"))
+    return sorted(Path(dir_path).rglob("*.endf"))
 
 
 def main():
@@ -40,10 +40,17 @@ def main():
                         help="Output .chain.arrow/ directory")
     parser.add_argument("--library", type=str, default="",
                         help="Library name (e.g., endfb-8.0)")
+    parser.add_argument("--branch-ratios", type=Path, default=None,
+                        help="JSON file of branching ratios (openmc_data format)")
     args = parser.parse_args()
 
     if args.xml is not None:
-        path = convert_chain(args.output, xml_path=args.xml, library=args.library)
+        path = convert_chain(
+            args.output,
+            xml_path=args.xml,
+            branch_ratios=args.branch_ratios,
+            library=args.library,
+        )
     else:
         if not all([args.decay_dir, args.fpy_dir, args.neutron_dir]):
             parser.error(
@@ -54,6 +61,7 @@ def main():
             decay_files=_collect(args.decay_dir),
             fpy_files=_collect(args.fpy_dir),
             neutron_files=_collect(args.neutron_dir),
+            branch_ratios=args.branch_ratios,
             library=args.library,
         )
 

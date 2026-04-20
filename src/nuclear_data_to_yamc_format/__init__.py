@@ -129,7 +129,8 @@ def convert_photon_endf(input_path, output_dir, *, library=""):
 
 
 def convert_chain(output_path, *, decay_files=None, fpy_files=None,
-                  neutron_files=None, xml_path=None, library=""):
+                  neutron_files=None, xml_path=None, branch_ratios=None,
+                  library=""):
     """Convert a depletion chain to simulation-ready Arrow format.
 
     Either pass an existing ``xml_path`` (an OpenMC chain XML file) OR the
@@ -148,6 +149,10 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
         ENDF inputs used to build the chain.
     xml_path : str or Path, optional
         Existing OpenMC chain XML file to load instead of building from ENDF.
+    branch_ratios : str or Path, optional
+        Path to a JSON file of branching ratios in ``openmc_data`` format
+        (``{reaction: {parent: {target: ratio}}}``). Applied after the chain
+        is built/loaded.
     library : str, optional
         Library name (e.g., "endfb-8.0").
 
@@ -156,6 +161,7 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
     Path
         Path to the created ``.chain.arrow/`` directory.
     """
+    import json
     import openmc.deplete
     import openmc.deplete.chain as _chain_mod
 
@@ -176,6 +182,14 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
             neutron_files=list(neutron_files),
             reactions=list(_chain_mod.REACTIONS.keys()),
         )
+
+    if branch_ratios is not None:
+        with open(branch_ratios) as fh:
+            all_ratios = json.load(fh)
+        for reaction, ratios in all_ratios.items():
+            chain.set_branch_ratios(
+                branch_ratios=ratios, reaction=reaction, strict=False
+            )
 
     export_chain_to_arrow(chain, output_path, library=library)
     return output_path
