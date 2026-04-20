@@ -32,7 +32,6 @@ templates_path = ["_templates"]
 exclude_patterns = ["_build"]
 
 html_theme = "pydata_sphinx_theme"
-html_static_path = ["_static"]
 
 html_theme_options = {
     "github_url": "https://github.com/yamc-org/nuclear_data_to_yamc_format",
