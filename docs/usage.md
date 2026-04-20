@@ -63,44 +63,46 @@ convert_photon_endf(
 # creates output/H.arrow/, output/He.arrow/, ...
 ```
 
-## Command-line script
+## Command-line tools
 
-A convenience script is included for single-file conversion:
+Installing the package registers four console entry points.
+
+### `convert-single-file`
+
+Convert a single ACE or ENDF file:
 
 ```bash
 # Neutron from ACE
-python scripts/convert_single_file.py neutron 92235.710nc -o output/
+convert-single-file neutron 92235.710nc -o output/
 
 # Neutron from ACE with library name
-python scripts/convert_single_file.py neutron 92235.710nc -o output/ --library endfb-8.0
+convert-single-file neutron 92235.710nc -o output/ --library endfb-8.0
 
 # Neutron from ENDF
-python scripts/convert_single_file.py neutron n-092_U_235.endf -f endf -o output/
+convert-single-file neutron n-092_U_235.endf -f endf -o output/
 
 # Photon from ENDF with atomic relaxation
-python scripts/convert_single_file.py photon photoat-026_Fe_000.endf \
+convert-single-file photon photoat-026_Fe_000.endf \
     --atom atom-026_Fe_000.endf -o output/ --library endfb-8.0
 ```
 
-### Bulk conversion scripts
+### Bulk conversion
 
-Two scripts are provided for converting entire libraries:
-
-`scripts/convert_endf.py`
-: Converts the ENDF/B-VIII.0 (or VII.1) library using NJOY for Doppler
+`convert-endf`
+: Converts the ENDF/B-VIII.1 (or VIII.0, VII.1) library using NJOY for Doppler
   broadening.  Automatically downloads ENDF files from NNDC if not found
   locally (searches `./endfb-{release}-endf/` then
   `~/nuclear_data/endfb-{release}-endf/`).  Processes neutrons in parallel.
 
   ```bash
-  # Default: ENDF/B-VIII.0, 6 temperatures, output to ~/nuclear_data/endf-b8.0-arrow/
-  python scripts/convert_endf.py
+  # Default: ENDF/B-VIII.1, 6 temperatures, output to ~/nuclear_data/endf-b8.1-arrow/
+  convert-endf
 
   # ENDF/B-VII.1 with custom temperatures
-  python scripts/convert_endf.py -r vii.1 --temperatures 293.6 600.0
+  convert-endf -r vii.1 --temperatures 293.6 600.0
   ```
 
-`scripts/convert_fendl.py`
+`convert-fendl`
 : Converts the FENDL library (ACE neutrons + ENDF photons).
   Automatically downloads from IAEA if not found locally (searches
   `./fendl-{release}-ace/` and `./fendl-{release}-endf/` then
@@ -108,13 +110,26 @@ Two scripts are provided for converting entire libraries:
 
   ```bash
   # Default: FENDL 3.2c, output to ./fendl-3.2c-arrow/
-  python scripts/convert_fendl.py
+  convert-fendl
 
   # FENDL 3.1d, custom output
-  python scripts/convert_fendl.py -r 3.1d -d /path/to/output
+  convert-fendl -r 3.1d -d /path/to/output
   ```
 
-Both scripts accept `--cleanup` to remove source files after conversion.
+`convert-tendl`
+: Converts the TENDL library (neutron only). Pipeline: download ENDF → NJOY →
+  OpenMC → Arrow.
+
+  ```bash
+  # Default: TENDL 2025
+  convert-tendl
+
+  # TENDL 2023, filter to specific nuclides
+  convert-tendl -r 2023 --nuclides Fe56 U235
+  ```
+
+All bulk commands accept `--cleanup` to remove source files after conversion
+and `--nuclides` to filter to a subset of isotopes.
 
 ## Reading Arrow files back
 

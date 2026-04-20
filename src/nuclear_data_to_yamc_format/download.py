@@ -123,6 +123,36 @@ def find_photon_files(endf_dir):
 # =============================================================================
 
 ENDF_RELEASES = {
+    "viii.1": {
+        "library": "endfb-8.1",
+        "dir": "endfb-viii.1-endf",
+        "dest": "endf-b8.1-arrow",
+        "neutron": {
+            "base_url": "https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/",
+            "files": [
+                "neutrons/neutrons-version.VIII.1.tar.gz",
+            ],
+        },
+        "photon": {
+            "base_url": "https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/",
+            "files": [
+                "photoat/photoat-version.VIII.1.tar.gz",
+                "atomic_relax/atomic_relax-version.VIII.1.tar.gz",
+            ],
+        },
+        "decay": {
+            "base_url": "https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/",
+            "files": [
+                "decay/decay-version.VIII.1.tar.gz",
+            ],
+        },
+        "nfy": {
+            "base_url": "https://www.nndc.bnl.gov/endf-releases/releases/B-VIII.1/",
+            "files": [
+                "nfy/nfy-version.VIII.1.tar.gz",
+            ],
+        },
+    },
     "viii.0": {
         "library": "endfb-8.0",
         "dir": "endfb-viii.0-endf",
