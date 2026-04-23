@@ -277,6 +277,18 @@ def build_fast_xs(data, temperature, synthetic_mts):
     # For simplicity, use zeros; yamc computes this from product data
     photon_prod = np.zeros(n_energy, dtype=np.float64)
 
+    # Dense MT → index lookup tables. A Rust or GPU reader can do
+    # `idx = table[mt]` instead of linear-scanning the mt_numbers list.
+    from .schemas import MT_LOOKUP_SIZE
+    scatter_mt_to_idx = np.full(MT_LOOKUP_SIZE, -1, dtype=np.int32)
+    for i, mt in enumerate(scatter_mt_numbers):
+        if 0 <= mt < MT_LOOKUP_SIZE:
+            scatter_mt_to_idx[mt] = i
+    fission_mt_to_idx = np.full(MT_LOOKUP_SIZE, -1, dtype=np.int32)
+    for i, mt in enumerate(fission_mt_numbers):
+        if 0 <= mt < MT_LOOKUP_SIZE:
+            fission_mt_to_idx[mt] = i
+
     return {
         "log_e_min": float(log_e_min),
         "inv_log_delta": float(inv_log_delta),
@@ -290,4 +302,9 @@ def build_fast_xs(data, temperature, synthetic_mts):
         "has_partial_fission": has_partial_fission,
         "xs_ngamma": xs_ngamma,
         "photon_prod": photon_prod,
+        "n_energies": int(n_energy),
+        "n_scatter_mts": int(len(scatter_mt_numbers)),
+        "n_fission_mts": int(len(fission_mt_numbers)),
+        "scatter_mt_to_idx": scatter_mt_to_idx,
+        "fission_mt_to_idx": fission_mt_to_idx,
     }

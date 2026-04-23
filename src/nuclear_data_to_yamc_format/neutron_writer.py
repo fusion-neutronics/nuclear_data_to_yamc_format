@@ -468,6 +468,10 @@ def export_neutron_to_arrow(data, path, *, library=""):
     energy_vals = [np.asarray(data.energy[t], dtype=np.float64).tolist()
                    for t in energy_temps]
 
+    # Any present fission MT (18, 19, 20, 21, 38) makes the nuclide fissionable.
+    # Computed once here so the Rust loader doesn't have to scan reactions.
+    fissionable = any(mt in data.reactions for mt in (18, 19, 20, 21, 38))
+
     nuclide_table = pa.table(
         {
             "name": [data.name],
@@ -479,6 +483,7 @@ def export_neutron_to_arrow(data, path, *, library=""):
             "kTs": [kts],
             "energy_temperatures": [energy_temps],
             "energy_values": [energy_vals],
+            "fissionable": [fissionable],
         },
         schema=NUCLIDE_SCHEMA,
     )
@@ -516,6 +521,11 @@ def export_neutron_to_arrow(data, path, *, library=""):
             "has_partial_fission": fxs["has_partial_fission"],
             "xs_ngamma": fxs["xs_ngamma"].tolist(),
             "photon_prod": fxs["photon_prod"].tolist(),
+            "n_energies": fxs["n_energies"],
+            "n_scatter_mts": fxs["n_scatter_mts"],
+            "n_fission_mts": fxs["n_fission_mts"],
+            "scatter_mt_to_idx": fxs["scatter_mt_to_idx"].tolist(),
+            "fission_mt_to_idx": fxs["fission_mt_to_idx"].tolist(),
         })
 
     # Write fast_xs.arrow

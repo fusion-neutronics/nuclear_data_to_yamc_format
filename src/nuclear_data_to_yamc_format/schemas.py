@@ -18,6 +18,9 @@ NUCLIDE_SCHEMA = pa.schema(
         pa.field("kTs", pa.list_(pa.float64())),
         pa.field("energy_temperatures", pa.list_(pa.utf8())),
         pa.field("energy_values", pa.list_(pa.list_(pa.float64()))),
+        # Pre-computed at build time: true iff any fission MT (18, 19, 20, 21, 38)
+        # is present. Nullable for back-compat with older files.
+        pa.field("fissionable", pa.bool_(), nullable=True),
     ],
     metadata={b"filetype": b"data_neutron", b"version": b"4.0"},
 )
@@ -143,6 +146,10 @@ TOTAL_NU_SCHEMA = pa.schema(
 # FastXSGrid schema — one row per temperature
 # ---------------------------------------------------------------------------
 
+#: Fixed size of the dense MT → index lookup tables. Large enough for every
+#: ENDF-defined MT number in practice (levels run up to ~890).
+MT_LOOKUP_SIZE = 1024
+
 FAST_XS_SCHEMA = pa.schema(
     [
         pa.field("temperature", pa.utf8()),
@@ -161,6 +168,18 @@ FAST_XS_SCHEMA = pa.schema(
         pa.field("has_partial_fission", pa.bool_()),
         pa.field("xs_ngamma", pa.list_(pa.float64())),
         pa.field("photon_prod", pa.list_(pa.float64())),
+        # Pre-computed scalars (derived from the shape arrays above).
+        # Explicit for GPU buffer sizing and faster load. All nullable for
+        # back-compat with older files.
+        pa.field("n_energies", pa.int32(), nullable=True),
+        pa.field("n_scatter_mts", pa.int32(), nullable=True),
+        pa.field("n_fission_mts", pa.int32(), nullable=True),
+        # Dense MT → index lookup tables of length MT_LOOKUP_SIZE.
+        # scatter_mt_to_idx[mt] = position in `scatter_mt_numbers`, or -1 if
+        # absent. Removes the linear scan that would otherwise run per MT
+        # query (elastic, (n,2n), etc.). Same shape for fission.
+        pa.field("scatter_mt_to_idx", pa.list_(pa.int32()), nullable=True),
+        pa.field("fission_mt_to_idx", pa.list_(pa.int32()), nullable=True),
     ]
 )
 
