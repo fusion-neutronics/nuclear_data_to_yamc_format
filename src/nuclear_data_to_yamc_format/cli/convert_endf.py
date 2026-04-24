@@ -11,6 +11,7 @@ Output defaults to ~/nuclear_data/endf-b{X}.0-arrow/.
 """
 
 import argparse
+import re
 import sys
 from multiprocessing import Pool
 from pathlib import Path
@@ -24,8 +25,49 @@ from nuclear_data_to_yamc_format.download import (
 assert sys.version_info >= (3, 9), "Python 3.9+ is required"
 
 
+# Filename patterns the convert pipeline expects for each particle. Used to
+# decide whether an existing local ENDF source already has the files needed
+# for that particle, or whether we need to download them.
+PARTICLE_GLOBS = {
+    "neutron": ("n-*.endf",),
+    "photon": ("photoat-*.endf", "atom-*.endf"),
+}
+
+
+def _has_particle_source(endf_dir, particle):
+    globs = PARTICLE_GLOBS.get(particle, ())
+    return bool(globs) and all(
+        next(endf_dir.rglob(g), None) is not None for g in globs
+    )
+
+
+_NEUTRON_FILENAME_RE = re.compile(
+    r"^n-\d+_(?P<sym>[A-Za-z]+)_(?P<mass>\d+)(?:m(?P<meta>\d+))?$"
+)
+
+
+def _nuclide_name_from_neutron_endf(path):
+    """Derive the expected Arrow output name (e.g. 'Ag110_m1') from a neutron
+    ENDF filename like 'n-047_Ag_110m1.endf'. Returns None if the filename
+    doesn't match the expected pattern — the caller should then fall back to
+    running the conversion (which parses the file for the authoritative name).
+    """
+    m = _NEUTRON_FILENAME_RE.match(path.stem)
+    if not m:
+        return None
+    name = f"{m['sym']}{int(m['mass'])}"
+    if m["meta"]:
+        name += f"_m{m['meta']}"
+    return name
+
+
 def find_or_download_endf(release, particles):
-    """Find existing ENDF source or download it."""
+    """Return the ENDF source dir, downloading any requested particle whose
+    source files are missing.
+
+    Each particle is checked independently, so a pre-existing neutron source
+    does not suppress a needed photon download.
+    """
     info = ENDF_RELEASES[release]
     dirname = info["dir"]
 
@@ -33,23 +75,24 @@ def find_or_download_endf(release, particles):
         Path.cwd() / dirname,
         Path.home() / "nuclear_data" / dirname,
     ]
-    for p in candidates:
-        if p.is_dir() and any(p.rglob("*.endf")):
-            print(f"Using existing ENDF source: {p}")
-            return p
-
-    dest = Path.home() / "nuclear_data" / dirname
-    download_dir = dest / "_downloads"
-    print(f"ENDF source not found locally. Downloading to {dest}")
+    endf_dir = next(
+        (p for p in candidates if p.is_dir() and any(p.rglob("*.endf"))),
+        Path.home() / "nuclear_data" / dirname,
+    )
+    download_dir = endf_dir / "_downloads"
 
     for particle in particles:
-        if particle in info:
-            details = info[particle]
-            urls = [details["base_url"] + f for f in details["files"]]
-            print(f"\nDownloading {particle} data...")
-            download_and_extract(urls, dest, download_dir)
+        if particle not in info:
+            continue
+        if _has_particle_source(endf_dir, particle):
+            print(f"Using existing {particle} ENDF source in {endf_dir}")
+            continue
+        details = info[particle]
+        urls = [details["base_url"] + f for f in details["files"]]
+        print(f"\nDownloading {particle} data to {endf_dir}")
+        download_and_extract(urls, endf_dir, download_dir)
 
-    return dest
+    return endf_dir
 
 
 def main():
@@ -75,6 +118,9 @@ def main():
                         help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
+    parser.add_argument("--force", action="store_true",
+                        help="Reconvert nuclides whose output already exists "
+                             "(default: skip them to save time)")
     args = parser.parse_args()
 
     info = ENDF_RELEASES[args.release]
@@ -96,7 +142,21 @@ def main():
         # Skip free neutron (no bound cross sections)
         endf_files = [f for f in endf_files if f.name != "n-000_n_001.endf"]
         endf_files = nuclide_filter(endf_files, args.nuclides)
-        print(f"Found {len(endf_files)} neutron ENDF files")
+
+        neutron_out = args.destination / "neutron"
+        skipped = []
+        if not args.force:
+            todo = []
+            for f in endf_files:
+                name = _nuclide_name_from_neutron_endf(f)
+                if name and (neutron_out / f"{name}.arrow" / "version.json").is_file():
+                    skipped.append(name)
+                else:
+                    todo.append(f)
+            endf_files = todo
+
+        print(f"Found {len(endf_files) + len(skipped)} neutron ENDF files "
+              f"({len(skipped)} already converted, skipping; use --force to reconvert)")
 
         failed = []
         total = len(endf_files)
@@ -105,7 +165,7 @@ def main():
             for f in endf_files:
                 r = pool.apply_async(
                     convert_neutron,
-                    (f, args.destination / "neutron"),
+                    (f, neutron_out),
                     dict(source_format="endf", temperatures=args.temperatures,
                          library=lib_name),
                 )
