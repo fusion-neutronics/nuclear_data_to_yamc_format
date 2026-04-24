@@ -254,10 +254,10 @@ BREMSSTRAHLUNG_SCHEMA = pa.schema(
 )
 
 # ---------------------------------------------------------------------------
-# Depletion chain schemas
+# Transmutation network schemas
 # ---------------------------------------------------------------------------
 
-CHAIN_NUCLIDES_SCHEMA = pa.schema(
+TRANSMUTATION_NUCLIDES_SCHEMA = pa.schema(
     [
         pa.field("name", pa.utf8(), nullable=False),
         pa.field("half_life", pa.float64(), nullable=True),
@@ -268,10 +268,10 @@ CHAIN_NUCLIDES_SCHEMA = pa.schema(
         pa.field("has_fission_yields", pa.bool_(), nullable=False),
         pa.field("fission_yield_parent", pa.utf8(), nullable=True),
     ],
-    metadata={b"filetype": b"depletion_chain", b"version": b"1.0"},
+    metadata={b"filetype": b"transmutation", b"version": b"1.0"},
 )
 
-CHAIN_DECAYS_SCHEMA = pa.schema(
+TRANSMUTATION_DECAYS_SCHEMA = pa.schema(
     [
         pa.field("nuclide", pa.utf8(), nullable=False),
         pa.field("type", pa.utf8(), nullable=False),
@@ -280,7 +280,7 @@ CHAIN_DECAYS_SCHEMA = pa.schema(
     ]
 )
 
-CHAIN_REACTIONS_SCHEMA = pa.schema(
+TRANSMUTATION_REACTIONS_SCHEMA = pa.schema(
     [
         pa.field("nuclide", pa.utf8(), nullable=False),
         pa.field("type", pa.utf8(), nullable=False),
@@ -290,7 +290,7 @@ CHAIN_REACTIONS_SCHEMA = pa.schema(
     ]
 )
 
-CHAIN_SOURCES_SCHEMA = pa.schema(
+TRANSMUTATION_SOURCES_SCHEMA = pa.schema(
     [
         pa.field("nuclide", pa.utf8(), nullable=False),
         pa.field("particle", pa.utf8(), nullable=False),
@@ -300,7 +300,7 @@ CHAIN_SOURCES_SCHEMA = pa.schema(
     ]
 )
 
-CHAIN_FISSION_YIELDS_SCHEMA = pa.schema(
+TRANSMUTATION_FISSION_YIELDS_SCHEMA = pa.schema(
     [
         pa.field("nuclide", pa.utf8(), nullable=False),
         pa.field("energy", pa.float64(), nullable=False),

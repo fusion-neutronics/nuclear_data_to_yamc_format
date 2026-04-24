@@ -21,10 +21,11 @@ docs = [
     "pydata-sphinx-theme",
     "myst-parser",
     "sphinx-autobuild",
+    "sphinxcontrib-mermaid",
 ]
 
 [project.scripts]
-convert-chain = "nuclear_data_to_yamc_format.cli.convert_chain:main"
+convert-transmutation = "nuclear_data_to_yamc_format.cli.convert_transmutation:main"
 convert-endf = "nuclear_data_to_yamc_format.cli.convert_endf:main"
 convert-fendl = "nuclear_data_to_yamc_format.cli.convert_fendl:main"
 convert-single-file = "nuclear_data_to_yamc_format.cli.convert_single_file:main"

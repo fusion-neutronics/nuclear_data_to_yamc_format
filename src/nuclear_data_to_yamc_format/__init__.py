@@ -5,7 +5,7 @@ import openmc.data
 
 from .neutron_writer import export_neutron_to_arrow
 from .photon_writer import export_photon_to_arrow
-from .chain_writer import export_chain_to_arrow
+from .transmutation_writer import export_transmutation_to_arrow
 from .neutron_reader import read_neutron_from_arrow
 from .photon_reader import read_photon_from_arrow
 from .verify import verify_neutron, verify_photon
@@ -128,14 +128,14 @@ def convert_photon_endf(input_path, output_dir, *, library=""):
     return paths
 
 
-def convert_chain(output_path, *, decay_files=None, fpy_files=None,
-                  neutron_files=None, xml_path=None, branch_ratios=None,
-                  library=""):
-    """Convert a depletion chain to simulation-ready Arrow format.
+def convert_transmutation(output_path, *, decay_files=None, fpy_files=None,
+                          neutron_files=None, xml_path=None, branch_ratios=None,
+                          library=""):
+    """Convert a transmutation network to simulation-ready Arrow format.
 
     Either pass an existing ``xml_path`` (an OpenMC chain XML file) OR the
     trio of ENDF file lists (``decay_files``, ``fpy_files``, ``neutron_files``)
-    used to build a fresh chain.
+    used to build a fresh network.
 
     When building from ENDF, the full OpenMC reaction set is requested
     (``reactions=list(openmc.deplete.chain.REACTIONS.keys())``) rather than
@@ -144,14 +144,14 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
     Parameters
     ----------
     output_path : str or Path
-        Target ``.chain.arrow/`` directory.
+        Target ``transmutation_{library}.arrow/`` directory.
     decay_files, fpy_files, neutron_files : list of path-like, optional
-        ENDF inputs used to build the chain.
+        ENDF inputs used to build the network.
     xml_path : str or Path, optional
         Existing OpenMC chain XML file to load instead of building from ENDF.
     branch_ratios : str or Path, optional
         Path to a JSON file of branching ratios in ``openmc_data`` format
-        (``{reaction: {parent: {target: ratio}}}``). Applied after the chain
+        (``{reaction: {parent: {target: ratio}}}``). Applied after the network
         is built/loaded.
     library : str, optional
         Library name (e.g., "endfb-8.0").
@@ -159,7 +159,7 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
     Returns
     -------
     Path
-        Path to the created ``.chain.arrow/`` directory.
+        Path to the created ``transmutation_{library}.arrow/`` directory.
     """
     import json
     import openmc.deplete
@@ -191,7 +191,7 @@ def convert_chain(output_path, *, decay_files=None, fpy_files=None,
                 branch_ratios=ratios, reaction=reaction, strict=False
             )
 
-    export_chain_to_arrow(chain, output_path, library=library)
+    export_transmutation_to_arrow(chain, output_path, library=library)
     return output_path
 
 
@@ -200,10 +200,10 @@ __all__ = [
     "convert_neutron",
     "convert_photon",
     "convert_photon_endf",
-    "convert_chain",
+    "convert_transmutation",
     "export_neutron_to_arrow",
     "export_photon_to_arrow",
-    "export_chain_to_arrow",
+    "export_transmutation_to_arrow",
     "read_neutron_from_arrow",
     "read_photon_from_arrow",
     "verify_neutron",

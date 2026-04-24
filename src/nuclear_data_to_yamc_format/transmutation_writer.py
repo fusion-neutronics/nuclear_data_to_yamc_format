@@ -1,6 +1,6 @@
-"""Export an OpenMC depletion Chain object to a simulation-ready .chain.arrow/ directory.
+"""Export an OpenMC depletion Chain object to a simulation-ready transmutation_{library}.arrow/ directory.
 
-Writes a directory of Arrow IPC tables describing the depletion network:
+Writes a directory of Arrow IPC tables describing the transmutation network:
 nuclides, decay modes, reactions, decay photon/electron sources, and
 fission product yields.
 """
@@ -16,11 +16,11 @@ import pyarrow.ipc as ipc
 from openmc.stats.univariate import Discrete, Tabular, Mixture
 
 from .schemas import (
-    CHAIN_NUCLIDES_SCHEMA,
-    CHAIN_DECAYS_SCHEMA,
-    CHAIN_REACTIONS_SCHEMA,
-    CHAIN_SOURCES_SCHEMA,
-    CHAIN_FISSION_YIELDS_SCHEMA,
+    TRANSMUTATION_NUCLIDES_SCHEMA,
+    TRANSMUTATION_DECAYS_SCHEMA,
+    TRANSMUTATION_REACTIONS_SCHEMA,
+    TRANSMUTATION_SOURCES_SCHEMA,
+    TRANSMUTATION_FISSION_YIELDS_SCHEMA,
 )
 
 
@@ -63,15 +63,15 @@ def _source_rows(nuclide_name, particle, dist):
         )
 
 
-def export_chain_to_arrow(chain, path, *, library=""):
-    """Export an openmc.deplete.Chain to a .chain.arrow/ directory.
+def export_transmutation_to_arrow(chain, path, *, library=""):
+    """Export an openmc.deplete.Chain to a transmutation_{library}.arrow/ directory.
 
     Parameters
     ----------
     chain : openmc.deplete.Chain
-        The depletion chain to export.
+        The transmutation network to export.
     path : str or Path
-        Output directory (e.g., "chain_endf_b8.0.chain.arrow").
+        Output directory (e.g., "transmutation_endf_b8.0.arrow").
     library : str, optional
         Library name (e.g., "endfb-8.0").
     """
@@ -153,17 +153,17 @@ def export_chain_to_arrow(chain, path, *, library=""):
             schema=schema,
         )
 
-    nuclides_table = _table(nuclide_rows, CHAIN_NUCLIDES_SCHEMA)
+    nuclides_table = _table(nuclide_rows, TRANSMUTATION_NUCLIDES_SCHEMA)
     _write_arrow_ipc(nuclides_table, path / "nuclides.arrow")
 
     if decay_rows:
-        _write_arrow_ipc(_table(decay_rows, CHAIN_DECAYS_SCHEMA), path / "decays.arrow")
+        _write_arrow_ipc(_table(decay_rows, TRANSMUTATION_DECAYS_SCHEMA), path / "decays.arrow")
 
     if reaction_rows:
-        _write_arrow_ipc(_table(reaction_rows, CHAIN_REACTIONS_SCHEMA), path / "reactions.arrow")
+        _write_arrow_ipc(_table(reaction_rows, TRANSMUTATION_REACTIONS_SCHEMA), path / "reactions.arrow")
 
     if source_rows:
-        _write_arrow_ipc(_table(source_rows, CHAIN_SOURCES_SCHEMA), path / "sources.arrow")
+        _write_arrow_ipc(_table(source_rows, TRANSMUTATION_SOURCES_SCHEMA), path / "sources.arrow")
 
     if fy_rows:
-        _write_arrow_ipc(_table(fy_rows, CHAIN_FISSION_YIELDS_SCHEMA), path / "fission_yields.arrow")
+        _write_arrow_ipc(_table(fy_rows, TRANSMUTATION_FISSION_YIELDS_SCHEMA), path / "fission_yields.arrow")

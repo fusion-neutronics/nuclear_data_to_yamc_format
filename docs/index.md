@@ -2,21 +2,38 @@
 
 **nuclear_data_to_yamc_format** converts nuclear data files (ACE or ENDF) into
 simulation-ready [Apache Arrow IPC](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)
-directories (`.arrow/`).  The output includes pre-computed hierarchical MT
-cross sections, FastXSGrid lookup tables, and log-space photon data — everything
-yamc needs to start a simulation with near-zero load time.
+directories (`.arrow/`).  The output is tailored for GPU-ready Monte Carlo
+transport: columnar, fixed-width, zero-copy-mappable layouts that stream
+directly into device buffers.  It includes pre-computed hierarchical MT
+cross sections, FastXSGrid lookup tables, and log-space photon data — everything YAMC needs to start a simulation with near-zero load time.
 
 Depletion and activation workflows are covered by a matching
-`.chain.arrow/` format: one directory of Arrow tables holding the full
-transmutation network (decay data, decay-product sources, transmutation
+`transmutation_{library}.arrow/` format: one directory of Arrow tables holding the
+full transmutation network (decay data, decay-product sources, transmutation
 reactions, and fission product yields).
 
-```text
-ACE  ──────────────────► OpenMC objects ──► .arrow/
-                              │
-ENDF ──► NJOY ──────────►    │    └── synthesize MTs (1,3,4,27,101)
-                                  └── build FastXSGrid (8000 log bins)
-                                  └── log-space photon XS + Compton CDFs
+```{mermaid}
+flowchart LR
+    ACE[ACE] --> OMC_N[OpenMC IncidentNeutron]
+    ENDF_N[ENDF neutron] --> NJOY[NJOY] --> OMC_N
+    OMC_N --> NARROW["neutron .arrow/"]
+    NARROW --- N1(["synthesize MTs · FastXSGrid"])
+
+    ENDF_P["ENDF photon + atomic relax"] --> OMC_P[OpenMC IncidentPhoton]
+    OMC_P --> PARROW["photon .arrow/"]
+    PARROW --- N2(["log-space photon XS · Compton CDFs"])
+
+    ENDF_D[ENDF decay] --> CHAIN[OpenMC Chain]
+    ENDF_Y[ENDF NFY] --> CHAIN
+    ENDF_N --> CHAIN
+    XML[Chain XML] --> CHAIN
+    JSON[branch ratios JSON] -.-> CHAIN
+    CHAIN --> TARROW["transmutation_{library}.arrow/"]
+    TARROW --- N3(["nuclides · decays · reactions · decay γ/e⁻ sources · fission yields"])
+
+    style N1 fill:#f5f5f5,stroke:#ccc
+    style N2 fill:#f5f5f5,stroke:#ccc
+    style N3 fill:#f5f5f5,stroke:#ccc
 ```
 
 ## Quick start
@@ -71,10 +88,10 @@ Fe.arrow/
 └── bremsstrahlung.arrow  (optional)
 ```
 
-### Transmutation chain: `{name}.chain.arrow/`
+### Transmutation network: `transmutation_{library}.arrow/`
 
 ```text
-chain_endf_b8.1.chain.arrow/
+transmutation_endf_b8.1.arrow/
 ├── version.json
 ├── nuclides.arrow        ← one row per nuclide; index for the other tables
 ├── decays.arrow          (optional: decay modes + branching ratios)

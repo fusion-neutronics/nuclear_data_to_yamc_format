@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
 
-"""Convert an OpenMC depletion chain to a simulation-ready .chain.arrow/ directory.
+"""Convert a transmutation network to a simulation-ready transmutation_{library}.arrow/ directory.
 
 Examples:
     # Build from an existing OpenMC chain XML
-    convert-chain --xml chain_endf_b8.0.xml \\
-        -o chain_endf_b8.0.chain.arrow --library endfb-8.0
+    convert-transmutation --xml chain_endf_b8.0.xml \\
+        -o transmutation_endf_b8.0.arrow --library endfb-8.0
 
     # Build from ENDF source files (all reactions included, matching
     # openmc_data's generate_endf_chain.py)
-    convert-chain \\
+    convert-transmutation \\
         --decay-dir decay/ --fpy-dir nfy/ --neutron-dir neutrons/ \\
-        -o chain_endf_b8.0.chain.arrow --library endfb-8.0
+        -o transmutation_endf_b8.0.arrow --library endfb-8.0
 """
 
 import argparse
 from pathlib import Path
 
-from nuclear_data_to_yamc_format import convert_chain
+from nuclear_data_to_yamc_format import convert_transmutation
 
 
 def _collect(dir_path):
@@ -37,7 +37,7 @@ def main():
     parser.add_argument("--neutron-dir", type=Path, default=None,
                         help="Directory of neutron ENDF files")
     parser.add_argument("-o", "--output", type=Path, required=True,
-                        help="Output .chain.arrow/ directory")
+                        help="Output transmutation_{library}.arrow/ directory")
     parser.add_argument("--library", type=str, default="",
                         help="Library name (e.g., endfb-8.0)")
     parser.add_argument("--branch-ratios", type=Path, default=None,
@@ -45,7 +45,7 @@ def main():
     args = parser.parse_args()
 
     if args.xml is not None:
-        path = convert_chain(
+        path = convert_transmutation(
             args.output,
             xml_path=args.xml,
             branch_ratios=args.branch_ratios,
@@ -56,7 +56,7 @@ def main():
             parser.error(
                 "Either --xml or all of --decay-dir/--fpy-dir/--neutron-dir must be provided."
             )
-        path = convert_chain(
+        path = convert_transmutation(
             args.output,
             decay_files=_collect(args.decay_dir),
             fpy_files=_collect(args.fpy_dir),

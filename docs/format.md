@@ -267,25 +267,25 @@ One row.  Present when bremsstrahlung data exists.
 | `dcs_shape` | `list<int32>` | `[n_electron_energies, n_photon_energies]` |
 
 
-## Transmutation / depletion chain: `{name}.chain.arrow/`
+## Transmutation network: `transmutation_{library}.arrow/`
 
-A depletion (transmutation) chain is stored as a single directory of Arrow
-IPC tables covering the whole nuclide network in one place — decay data,
-decay-product photon/electron sources, transmutation reactions, and fission
-product yields.  It is the Arrow analogue of an OpenMC ``chain_*.xml`` file,
-built either from that XML or from ENDF decay/NFY/neutron source files.
+A transmutation network is stored as a single directory of Arrow IPC tables
+covering the whole nuclide network in one place — decay data, decay-product
+photon/electron sources, transmutation reactions, and fission product yields.
+It is the Arrow analogue of an OpenMC ``chain_*.xml`` file, built either from
+that XML or from ENDF decay/NFY/neutron source files.
 
 ```text
-chain_endf_b8.1.chain.arrow/
+transmutation_endf_b8.1.arrow/
 ├── version.json
-├── nuclides.arrow            ← one row per nuclide in the chain
+├── nuclides.arrow            ← one row per nuclide in the network
 ├── decays.arrow              (optional: present when any nuclide decays)
 ├── reactions.arrow           (optional: transmutation reactions)
 ├── sources.arrow             (optional: decay photon/electron spectra)
 └── fission_yields.arrow      (optional: only for fissioning parents)
 ```
 
-File-level metadata on `nuclides.arrow`: `filetype=depletion_chain`,
+File-level metadata on `nuclides.arrow`: `filetype=transmutation`,
 `version=1.0`.  The other tables are unadorned — they are joined back to
 `nuclides` by the `nuclide` column.
 
@@ -296,7 +296,7 @@ Same structure as neutron/photon `version.json` — `format_version`,
 
 ### nuclides.arrow
 
-One row per nuclide in the chain.  Acts as the index table for the others.
+One row per nuclide in the network.  Acts as the index table for the others.
 
 | Column | Type | Description |
 |---|---|---|
@@ -311,7 +311,7 @@ One row per nuclide in the chain.  Acts as the index table for the others.
 
 ### decays.arrow
 
-One row per decay mode.  Omitted entirely if no nuclide in the chain has
+One row per decay mode.  Omitted entirely if no nuclide in the network has
 decay data.
 
 | Column | Type | Description |

@@ -15,6 +15,7 @@ extensions = [
     "sphinx.ext.intersphinx",
     "sphinx.ext.viewcode",
     "myst_parser",
+    "sphinxcontrib.mermaid",
 ]
 
 source_suffix = {

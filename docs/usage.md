@@ -63,20 +63,20 @@ convert_photon_endf(
 # creates output/H.arrow/, output/He.arrow/, ...
 ```
 
-### Transmutation / depletion chain
+### Transmutation network
 
-`convert_chain` exports a full depletion network — decay data, decay-product
-sources, transmutation reactions, and fission product yields — to a single
-`.chain.arrow/` directory.  Give it either an existing OpenMC chain XML or
-the trio of ENDF input lists used to build a fresh chain.
+`convert_transmutation` exports a full transmutation network — decay data,
+decay-product sources, transmutation reactions, and fission product yields — to
+a single `transmutation_{library}.arrow/` directory.  Give it either an existing
+OpenMC chain XML or the trio of ENDF input lists used to build a fresh network.
 
 From an existing OpenMC chain XML:
 
 ```python
-from nuclear_data_to_yamc_format import convert_chain
+from nuclear_data_to_yamc_format import convert_transmutation
 
-convert_chain(
-    "chain_endf_b8.1.chain.arrow",
+convert_transmutation(
+    "transmutation_endf_b8.1.arrow",
     xml_path="chain_endf_b8.1.xml",
     library="endfb-8.1",
 )
@@ -86,12 +86,12 @@ From ENDF source directories (what the release build script does):
 
 ```python
 from pathlib import Path
-from nuclear_data_to_yamc_format import convert_chain
+from nuclear_data_to_yamc_format import convert_transmutation
 
 endf = Path.home() / "nuclear_data" / "endfb-viii.1-endf"
 
-convert_chain(
-    "transmutation-endf-b8.1-sfr.arrow",
+convert_transmutation(
+    "transmutation_endf_b8.1_sfr.arrow",
     decay_files=list((endf / "decay-version.VIII.1").rglob("*.endf")),
     fpy_files=list((endf / "nfy-version.VIII.1").rglob("*.endf")),
     neutron_files=list((endf / "neutrons-version.VIII.1").rglob("*.endf")),
@@ -101,7 +101,7 @@ convert_chain(
 ```
 
 The optional `branch_ratios` JSON lets you override reaction-product branching
-ratios after the chain is built — useful for sodium-fast-reactor (SFR) vs.
+ratios after the network is built — useful for sodium-fast-reactor (SFR) vs.
 thermal branching conventions.  See `format.md` for the full directory layout
 and schemas.
 
@@ -170,23 +170,23 @@ convert-single-file photon photoat-026_Fe_000.endf \
   convert-tendl -r 2023 --nuclides Fe56 U235
   ```
 
-`convert-chain`
-: Builds a transmutation / depletion chain and writes it as
-  `.chain.arrow/`.  Takes either an OpenMC chain XML or the trio of ENDF
-  directories (decay, NFY, neutron).
+`convert-transmutation`
+: Builds a transmutation network and writes it as
+  `transmutation_{library}.arrow/`.  Takes either an OpenMC chain XML or the
+  trio of ENDF directories (decay, NFY, neutron).
 
   ```bash
-  # From an existing chain XML
-  convert-chain --xml chain_endf_b8.0.xml \
-      -o chain_endf_b8.0.chain.arrow --library endfb-8.0
+  # From an existing OpenMC chain XML
+  convert-transmutation --xml chain_endf_b8.0.xml \
+      -o transmutation_endf_b8.0.arrow --library endfb-8.0
 
   # From ENDF source directories, with SFR branching ratios
-  convert-chain \
+  convert-transmutation \
       --decay-dir   ~/nuclear_data/endfb-viii.1-endf/decay-version.VIII.1 \
       --fpy-dir     ~/nuclear_data/endfb-viii.1-endf/nfy-version.VIII.1 \
       --neutron-dir ~/nuclear_data/endfb-viii.1-endf/neutrons-version.VIII.1 \
       --branch-ratios branching_ratios_sfr.json \
-      -o transmutation-endf-b8.1-sfr.arrow --library endfb-8.1
+      -o transmutation_endf_b8.1_sfr.arrow --library endfb-8.1
   ```
 
 All bulk commands accept `--cleanup` to remove source files after conversion
