@@ -10,6 +10,10 @@ from urllib.request import Request, urlopen
 def download_file(url, dest_dir, *, verify_ssl=True):
     """Download a file from *url* into *dest_dir*, skipping if already present.
 
+    Writes to a ``.part`` sidecar first and atomically renames on success, so
+    an interrupted download never leaves a truncated file that would fool a
+    later run into thinking it had a complete cache.
+
     Returns the path to the downloaded file.
     """
     dest_dir = Path(dest_dir)
@@ -20,29 +24,44 @@ def download_file(url, dest_dir, *, verify_ssl=True):
         print(f"  Already downloaded: {dest}")
         return dest
 
+    part = dest.with_suffix(dest.suffix + ".part")
+    if part.exists():
+        part.unlink()  # discard any stale partial from a prior crash
+
     print(f"  Downloading {url}")
     kwargs = {}
     if not verify_ssl:
         kwargs["context"] = ssl._create_unverified_context()
     req = Request(url, headers={"User-Agent": "Mozilla/5.0"})
-    with urlopen(req, **kwargs) as resp, open(dest, "wb") as f:
-        total = int(resp.headers.get("Content-Length", 0))
-        downloaded = 0
-        while True:
-            chunk = resp.read(1 << 20)
-            if not chunk:
-                break
-            f.write(chunk)
-            downloaded += len(chunk)
+    try:
+        with urlopen(req, **kwargs) as resp, open(part, "wb") as f:
+            total = int(resp.headers.get("Content-Length", 0))
+            downloaded = 0
+            while True:
+                chunk = resp.read(1 << 20)
+                if not chunk:
+                    break
+                f.write(chunk)
+                downloaded += len(chunk)
+                if total:
+                    pct = 100 * downloaded / total
+                    print(
+                        f"\r  {downloaded / 1e6:.0f}/{total / 1e6:.0f} MB ({pct:.0f}%)",
+                        end="",
+                        flush=True,
+                    )
             if total:
-                pct = 100 * downloaded / total
-                print(
-                    f"\r  {downloaded / 1e6:.0f}/{total / 1e6:.0f} MB ({pct:.0f}%)",
-                    end="",
-                    flush=True,
-                )
-        if total:
-            print()
+                print()
+        if total and downloaded != total:
+            raise IOError(
+                f"Download incomplete: got {downloaded} bytes, expected {total} "
+                f"({url})"
+            )
+        part.replace(dest)
+    except BaseException:
+        if part.exists():
+            part.unlink()
+        raise
     return dest
 
 
