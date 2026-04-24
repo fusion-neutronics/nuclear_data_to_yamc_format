@@ -13,6 +13,7 @@ Only neutron data is available in TENDL.
 """
 
 import argparse
+import re
 import sys
 from multiprocessing import Pool
 from pathlib import Path
@@ -24,6 +25,27 @@ from nuclear_data_to_yamc_format.download import (
 )
 
 assert sys.version_info >= (3, 9), "Python 3.9+ is required"
+
+
+# TENDL neutron files follow ``n-{Sym}{A}[m{N}].tendl`` (e.g. ``n-Ag096m.tendl``).
+# The meta suffix in the filename is bare "m" — openmc writes the output as
+# ``{Sym}{A}_m1``. Returns None if the filename doesn't match the pattern,
+# in which case the caller should fall back to running the conversion.
+_TENDL_FILENAME_RE = re.compile(
+    r"^n-(?P<sym>[A-Z][a-z]?)(?P<mass>\d+)(?P<meta>m\d*)?$"
+)
+
+
+def _nuclide_name_from_tendl_file(path):
+    m = _TENDL_FILENAME_RE.match(path.stem)
+    if not m:
+        return None
+    name = f"{m['sym']}{int(m['mass'])}"
+    if m["meta"]:
+        # "m" alone → _m1, "m2" → _m2, etc.
+        n = m["meta"][1:] or "1"
+        name += f"_m{n}"
+    return name
 
 
 def find_or_download_tendl(release, info):
@@ -71,6 +93,9 @@ def main():
                         help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
+    parser.add_argument("--force", action="store_true",
+                        help="Reconvert nuclides whose output already exists "
+                             "(default: skip them to save time)")
     args = parser.parse_args()
 
     info = TENDL_RELEASES[args.release]
@@ -89,7 +114,20 @@ def main():
     neutron_glob = info["neutron"]["glob"]
     endf_files = sorted(endf_dir.rglob(neutron_glob))
     endf_files = nuclide_filter(endf_files, args.nuclides)
-    print(f"Found {len(endf_files)} neutron ENDF files")
+
+    skipped = []
+    if not args.force:
+        todo = []
+        for f in endf_files:
+            name = _nuclide_name_from_tendl_file(f)
+            if name and (neutron_dest / f"{name}.arrow" / "version.json").is_file():
+                skipped.append(name)
+            else:
+                todo.append(f)
+        endf_files = todo
+
+    print(f"Found {len(endf_files) + len(skipped)} neutron ENDF files "
+          f"({len(skipped)} already converted, skipping; use --force to reconvert)")
 
     failed = []
     total = len(endf_files)

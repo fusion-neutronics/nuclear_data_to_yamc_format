@@ -11,6 +11,9 @@ simulation-ready `.arrow/` output.
 ```{autofunction} nuclear_data_to_yamc_format.convert_photon
 ```
 
+```{autofunction} nuclear_data_to_yamc_format.convert_chain
+```
+
 ## Low-level writers
 
 Accept OpenMC Python objects directly.  Useful when you have already loaded
@@ -20,6 +23,9 @@ data through your own pipeline.
 ```
 
 ```{autofunction} nuclear_data_to_yamc_format.photon_writer.export_photon_to_arrow
+```
+
+```{autofunction} nuclear_data_to_yamc_format.chain_writer.export_chain_to_arrow
 ```
 
 ## Readers

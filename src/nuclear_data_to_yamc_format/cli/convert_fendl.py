@@ -9,6 +9,7 @@ Output defaults to ./fendl-{release}-arrow/.
 """
 
 import argparse
+import re
 from pathlib import Path
 
 from nuclear_data_to_yamc_format import convert_neutron, convert_photon_endf
@@ -19,6 +20,27 @@ from nuclear_data_to_yamc_format.download import (
 
 # Default file format per particle type
 FILE_TYPES = {"neutron": "ace", "photon": "endf"}
+
+
+# FENDL neutron ACE filenames: ``{Z}{Sym}[_]{A}[m[{N}]]`` where the ``_`` is
+# sometimes present (e.g. ``01H_001``, ``92U_238``) and sometimes not
+# (``28Ni058``, ``62Sm144``, ``73Ta180m``). We strip the leading Z digits and
+# optional underscore to get the nuclide name, matching what openmc writes for
+# the output .arrow directory. Returns None if the pattern doesn't match.
+_FENDL_ACE_FILENAME_RE = re.compile(
+    r"^\d+(?P<sym>[A-Z][a-z]?)_?(?P<mass>\d+)(?P<meta>m\d*)?$"
+)
+
+
+def _nuclide_name_from_fendl_ace(path):
+    m = _FENDL_ACE_FILENAME_RE.match(path.name)
+    if not m:
+        return None
+    name = f"{m['sym']}{int(m['mass'])}"
+    if m["meta"]:
+        n = m["meta"][1:] or "1"
+        name += f"_m{n}"
+    return name
 
 
 def find_or_download_fendl(release_key, particles):
@@ -84,6 +106,9 @@ def main():
                         help="Only convert these nuclides (e.g. Fe56 U235)")
     parser.add_argument("--cleanup", action="store_true",
                         help="Remove source files after conversion")
+    parser.add_argument("--force", action="store_true",
+                        help="Reconvert nuclides whose output already exists "
+                             "(default: skip them to save time)")
     args = parser.parse_args()
 
     release = FENDL_RELEASES[args.release]
@@ -105,7 +130,20 @@ def main():
             if not f.name.endswith("_") and not f.name.endswith(".xsd")
         ]
         neutron_files = nuclide_filter(neutron_files, args.nuclides)
-        print(f"Found {len(neutron_files)} neutron ACE files")
+
+        skipped = []
+        if not args.force:
+            todo = []
+            for f in neutron_files:
+                name = _nuclide_name_from_fendl_ace(f)
+                if name and (neutron_dest / f"{name}.arrow" / "version.json").is_file():
+                    skipped.append(name)
+                else:
+                    todo.append(f)
+            neutron_files = todo
+
+        print(f"Found {len(neutron_files) + len(skipped)} neutron ACE files "
+              f"({len(skipped)} already converted, skipping; use --force to reconvert)")
 
         total = len(neutron_files)
         for i, filename in enumerate(neutron_files, 1):

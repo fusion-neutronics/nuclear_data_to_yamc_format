@@ -1,10 +1,15 @@
-# nuclear_data_to_yamc_format
+# Nuclear Data_to YAMC Format
 
 **nuclear_data_to_yamc_format** converts nuclear data files (ACE or ENDF) into
 simulation-ready [Apache Arrow IPC](https://arrow.apache.org/docs/format/Columnar.html#ipc-file-format)
 directories (`.arrow/`).  The output includes pre-computed hierarchical MT
 cross sections, FastXSGrid lookup tables, and log-space photon data — everything
 yamc needs to start a simulation with near-zero load time.
+
+Depletion and activation workflows are covered by a matching
+`.chain.arrow/` format: one directory of Arrow tables holding the full
+transmutation network (decay data, decay-product sources, transmutation
+reactions, and fission product yields).
 
 ```text
 ACE  ──────────────────► OpenMC objects ──► .arrow/
@@ -64,6 +69,18 @@ Fe.arrow/
 ├── subshells.arrow       ← photoionization per subshell with ln(XS)
 ├── compton.arrow         (optional: profiles + pre-computed CDFs)
 └── bremsstrahlung.arrow  (optional)
+```
+
+### Transmutation chain: `{name}.chain.arrow/`
+
+```text
+chain_endf_b8.1.chain.arrow/
+├── version.json
+├── nuclides.arrow        ← one row per nuclide; index for the other tables
+├── decays.arrow          (optional: decay modes + branching ratios)
+├── reactions.arrow       (optional: transmutation reactions)
+├── sources.arrow         (optional: decay photon/electron spectra)
+└── fission_yields.arrow  (optional: only for fissioning parents)
 ```
 
 ```{toctree}

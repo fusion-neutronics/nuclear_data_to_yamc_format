@@ -265,3 +265,98 @@ One row.  Present when bremsstrahlung data exists.
 | `ionization_energy` | `list<float64>` | Ionization potentials (eV) |
 | `dcs_data` | `list<float64>` | Flattened scaled DCS array (C order) |
 | `dcs_shape` | `list<int32>` | `[n_electron_energies, n_photon_energies]` |
+
+
+## Transmutation / depletion chain: `{name}.chain.arrow/`
+
+A depletion (transmutation) chain is stored as a single directory of Arrow
+IPC tables covering the whole nuclide network in one place — decay data,
+decay-product photon/electron sources, transmutation reactions, and fission
+product yields.  It is the Arrow analogue of an OpenMC ``chain_*.xml`` file,
+built either from that XML or from ENDF decay/NFY/neutron source files.
+
+```text
+chain_endf_b8.1.chain.arrow/
+├── version.json
+├── nuclides.arrow            ← one row per nuclide in the chain
+├── decays.arrow              (optional: present when any nuclide decays)
+├── reactions.arrow           (optional: transmutation reactions)
+├── sources.arrow             (optional: decay photon/electron spectra)
+└── fission_yields.arrow      (optional: only for fissioning parents)
+```
+
+File-level metadata on `nuclides.arrow`: `filetype=depletion_chain`,
+`version=1.0`.  The other tables are unadorned — they are joined back to
+`nuclides` by the `nuclide` column.
+
+### version.json
+
+Same structure as neutron/photon `version.json` — `format_version`,
+`library`, `converter_version`, `created_utc`.
+
+### nuclides.arrow
+
+One row per nuclide in the chain.  Acts as the index table for the others.
+
+| Column | Type | Description |
+|---|---|---|
+| `name` | `utf8` | Nuclide name in GNDS format (e.g. `"U235"`, `"Ag110_m1"`) |
+| `half_life` | `float64` (nullable) | Half-life in seconds (null for stable nuclides) |
+| `decay_energy` | `float64` | Total decay energy (eV) |
+| `n_decay_modes` | `int32` | Number of rows for this nuclide in `decays.arrow` |
+| `n_reactions` | `int32` | Number of rows for this nuclide in `reactions.arrow` |
+| `n_sources` | `int32` | Number of rows for this nuclide in `sources.arrow` |
+| `has_fission_yields` | `bool` | True if this nuclide has its own fission yield data |
+| `fission_yield_parent` | `utf8` (nullable) | Name of the parent whose yields this nuclide inherits (null if self or none) |
+
+### decays.arrow
+
+One row per decay mode.  Omitted entirely if no nuclide in the chain has
+decay data.
+
+| Column | Type | Description |
+|---|---|---|
+| `nuclide` | `utf8` | Parent nuclide name |
+| `type` | `utf8` | Decay mode (e.g. `"beta-"`, `"alpha"`, `"ec/beta+"`) |
+| `target` | `utf8` (nullable) | Daughter nuclide name (null for spontaneous fission) |
+| `branching_ratio` | `float64` | Mode branching ratio |
+
+### reactions.arrow
+
+One row per transmutation reaction (e.g. `(n,gamma)`, `(n,2n)`, `(n,p)`).
+Omitted if no nuclide has transmutation reactions.
+
+| Column | Type | Description |
+|---|---|---|
+| `nuclide` | `utf8` | Parent nuclide name |
+| `type` | `utf8` | Reaction label (e.g. `"(n,gamma)"`) |
+| `target` | `utf8` (nullable) | Product nuclide name |
+| `Q` | `float64` | Q-value in eV |
+| `branching_ratio` | `float64` | Branching ratio (after applying `--branch-ratios` if supplied) |
+
+### sources.arrow
+
+One row per decay-product source spectrum.  `Mixture` distributions in the
+input are flattened into one row per component, with the component
+probability multiplied into the `intensities` column.
+
+| Column | Type | Description |
+|---|---|---|
+| `nuclide` | `utf8` | Emitting nuclide |
+| `particle` | `utf8` | Emitted particle (`"photon"`, `"electron"`, …) |
+| `type` | `utf8` | `"discrete"` or `"tabular"` |
+| `energies` | `list<float64>` | Energy grid (eV) |
+| `intensities` | `list<float64>` | Intensities at each energy |
+
+### fission_yields.arrow
+
+One row per (fissioning parent, incident energy) pair.  Only parents with
+their own yield data appear here — nuclides that inherit yields via
+`fission_yield_parent` in `nuclides.arrow` do not duplicate the table.
+
+| Column | Type | Description |
+|---|---|---|
+| `nuclide` | `utf8` | Fissioning parent |
+| `energy` | `float64` | Incident neutron energy (eV) |
+| `products` | `list<utf8>` | Fission product nuclide names |
+| `yields` | `list<float64>` | Independent yields, aligned with `products` |

@@ -63,6 +63,48 @@ convert_photon_endf(
 # creates output/H.arrow/, output/He.arrow/, ...
 ```
 
+### Transmutation / depletion chain
+
+`convert_chain` exports a full depletion network — decay data, decay-product
+sources, transmutation reactions, and fission product yields — to a single
+`.chain.arrow/` directory.  Give it either an existing OpenMC chain XML or
+the trio of ENDF input lists used to build a fresh chain.
+
+From an existing OpenMC chain XML:
+
+```python
+from nuclear_data_to_yamc_format import convert_chain
+
+convert_chain(
+    "chain_endf_b8.1.chain.arrow",
+    xml_path="chain_endf_b8.1.xml",
+    library="endfb-8.1",
+)
+```
+
+From ENDF source directories (what the release build script does):
+
+```python
+from pathlib import Path
+from nuclear_data_to_yamc_format import convert_chain
+
+endf = Path.home() / "nuclear_data" / "endfb-viii.1-endf"
+
+convert_chain(
+    "transmutation-endf-b8.1-sfr.arrow",
+    decay_files=list((endf / "decay-version.VIII.1").rglob("*.endf")),
+    fpy_files=list((endf / "nfy-version.VIII.1").rglob("*.endf")),
+    neutron_files=list((endf / "neutrons-version.VIII.1").rglob("*.endf")),
+    branch_ratios="branching_ratios_sfr.json",   # openmc_data format, optional
+    library="endfb-8.1",
+)
+```
+
+The optional `branch_ratios` JSON lets you override reaction-product branching
+ratios after the chain is built — useful for sodium-fast-reactor (SFR) vs.
+thermal branching conventions.  See `format.md` for the full directory layout
+and schemas.
+
 ## Command-line tools
 
 Installing the package registers four console entry points.
@@ -128,8 +170,31 @@ convert-single-file photon photoat-026_Fe_000.endf \
   convert-tendl -r 2023 --nuclides Fe56 U235
   ```
 
+`convert-chain`
+: Builds a transmutation / depletion chain and writes it as
+  `.chain.arrow/`.  Takes either an OpenMC chain XML or the trio of ENDF
+  directories (decay, NFY, neutron).
+
+  ```bash
+  # From an existing chain XML
+  convert-chain --xml chain_endf_b8.0.xml \
+      -o chain_endf_b8.0.chain.arrow --library endfb-8.0
+
+  # From ENDF source directories, with SFR branching ratios
+  convert-chain \
+      --decay-dir   ~/nuclear_data/endfb-viii.1-endf/decay-version.VIII.1 \
+      --fpy-dir     ~/nuclear_data/endfb-viii.1-endf/nfy-version.VIII.1 \
+      --neutron-dir ~/nuclear_data/endfb-viii.1-endf/neutrons-version.VIII.1 \
+      --branch-ratios branching_ratios_sfr.json \
+      -o transmutation-endf-b8.1-sfr.arrow --library endfb-8.1
+  ```
+
 All bulk commands accept `--cleanup` to remove source files after conversion
-and `--nuclides` to filter to a subset of isotopes.
+and `--nuclides` to filter to a subset of isotopes.  `convert-endf`,
+`convert-fendl`, and `convert-tendl` additionally accept `--force` to
+reconvert nuclides whose output already exists (by default they skip any
+`{Nuclide}.arrow/version.json` that already exists, so re-running a build
+after a crash or partial run only processes what's missing).
 
 ## Reading Arrow files back
 
