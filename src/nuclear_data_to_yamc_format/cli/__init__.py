@@ -63,10 +63,13 @@ def nuclide_filter(files, nuclides):
             except (ValueError, IndexError):
                 pass
 
-        # Fallback: check if any target nuclide appears in the filename
-        # Try both unpadded (Fe56) and zero-padded (Fe056) mass numbers
+        # Fallback: check if any target nuclide appears in the filename.
+        # Try both unpadded (Fe56) and zero-padded (Fe056) mass numbers.
+        # Strip underscores so FENDL ACE names like ``01H_001`` (H1) and
+        # ``08O_016`` (O16) match against "H001" / "O016".
+        compact = stem.replace("_", "")
         for elem, mass in targets:
-            if f"{elem}{mass}" in stem or f"{elem}{mass:03d}" in stem:
+            if f"{elem}{mass}" in compact or f"{elem}{mass:03d}" in compact:
                 kept.append(f)
                 matched.add((elem, mass))
                 break
